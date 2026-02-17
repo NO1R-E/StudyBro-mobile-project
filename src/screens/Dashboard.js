@@ -78,7 +78,7 @@ const Dashboard = ({ navigation }) => {
     <ScrollView style={styles.container}>
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>สวัสดี, สมหญิง 🌸</Text>
+        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷 </Text>
         <Text style={styles.dateText}>วันอังคารที่ 17 ก.พ. 2026</Text>
       </View>
 
@@ -102,8 +102,8 @@ const Dashboard = ({ navigation }) => {
         </TouchableOpacity>
       ) : (
         <View style={[styles.nextClassCard, { backgroundColor: "#FFB7C5" }]}>
-          <Text style={styles.className}>ไม่มีเรียนแล้ววันนี้ ✨</Text>
-          <Text style={styles.roomText}>พักผ่อนให้เต็มที่นะจ๊ะ!</Text>
+          <Text style={styles.className}>ไม่มีเรียนแล้ววันนี้ </Text>
+          <Text style={styles.roomText}>พักผ่อนให้เต็มที่ nigg</Text>
         </View>
       )}
 

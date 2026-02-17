@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Menu, Button } from "react-native-paper";
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import CustomDropdown from "../components/CustomDropdown";
 
 const Timetable = () => {
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
@@ -96,7 +98,14 @@ const Timetable = () => {
           </Text>
         </TouchableOpacity>
       </View>
-
+      <CustomDropdown
+        renderItem={(item) => (
+          <View style={{ flexDirection: "row" }}>
+            <Text>{item.title}</Text>
+            <Text>📚</Text>
+          </View>
+        )}
+      />
       {/* 2. รายการตาราง (แยกตามวัน) */}
       <ScrollView style={styles.listArea}>
         {days.map((day) => (

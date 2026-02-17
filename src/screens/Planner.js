@@ -12,7 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 const Planner = () => {
-  const [tab, setTab] = useState("study"); 
+  const [tab, setTab] = useState("study");
   const [inputText, setInputText] = useState("");
 
   const [studyTasks, setStudyTasks] = useState([
@@ -48,8 +48,8 @@ const Planner = () => {
   const toggleStudyTask = (id) => {
     setStudyTasks(
       studyTasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
+        task.id === id ? { ...task, completed: !task.completed } : task,
+      ),
     );
   };
 
@@ -123,7 +123,7 @@ const Planner = () => {
                   <Ionicons
                     name={item.completed ? "checkbox" : "square-outline"}
                     size={24}
-                    color={item.completed ? "#FF4D6D" : "#FFB7C5"} 
+                    color={item.completed ? "#FF4D6D" : "#FFB7C5"}
                   />
                   <Text
                     style={[
