@@ -89,17 +89,17 @@ const App = () => {
                   />
                   <Text
                     style={{
-                      color: "#FFF",
+                      color: "#000000",
                       fontSize: 18,
                       fontWeight: "bold",
                     }}
                   >
-                    Dash board
+                    Home
                   </Text>
                 </View>
               ),
               headerStyle: {
-                backgroundColor: "#FF748C", // สีชมพูคุมโทนเดิม
+                backgroundColor: "#ffffff", // สีชมพูคุมโทนเดิม
                 height: 100, // เพิ่มความสูงเล็กน้อยเพื่อให้ Logo ไม่ดูอึดอัด
               },
             }}
@@ -121,17 +121,17 @@ const App = () => {
                   />
                   <Text
                     style={{
-                      color: "#FFF",
+                      color: "#000000",
                       fontSize: 18,
                       fontWeight: "bold",
                     }}
                   >
-                    Timetable
+                    Academic
                   </Text>
                 </View>
               ),
               headerStyle: {
-                backgroundColor: "#FF748C", // สีชมพูคุมโทนเดิม
+                backgroundColor: "#ffffff", // สีชมพูคุมโทนเดิม
                 height: 100, // เพิ่มความสูงเล็กน้อยเพื่อให้ Logo ไม่ดูอึดอัด
               },
             }}
@@ -153,7 +153,7 @@ const App = () => {
                   />
                   <Text
                     style={{
-                      color: "#FFF",
+                      color: "#000000",
                       fontSize: 18,
                       fontWeight: "bold",
                     }}
@@ -163,7 +163,7 @@ const App = () => {
                 </View>
               ),
               headerStyle: {
-                backgroundColor: "#FF748C", // สีชมพูคุมโทนเดิม
+                backgroundColor: "#ffffff", // สีชมพูคุมโทนเดิม
                 height: 100, // เพิ่มความสูงเล็กน้อยเพื่อให้ Logo ไม่ดูอึดอัด
               },
             }}
@@ -185,7 +185,7 @@ const App = () => {
                   />
                   <Text
                     style={{
-                      color: "#FFF",
+                      color: "#000000",
                       fontSize: 18,
                       fontWeight: "bold",
                     }}
@@ -195,7 +195,7 @@ const App = () => {
                 </View>
               ),
               headerStyle: {
-                backgroundColor: "#FF748C", // สีชมพูคุมโทนเดิม
+                backgroundColor: "#ffffff", // สีชมพูคุมโทนเดิม
                 height: 100, // เพิ่มความสูงเล็กน้อยเพื่อให้ Logo ไม่ดูอึดอัด
               },
             }}
