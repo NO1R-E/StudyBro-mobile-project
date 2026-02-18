@@ -11,8 +11,12 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
+
 
 const Profile = () => {
+
+
   // สร้าง State สำหรับเก็บข้อมูลโปรไฟล์
   const [profile, setProfile] = useState({
     name: "สมหญิง รักเรียน",
@@ -20,8 +24,16 @@ const Profile = () => {
     year: "2",
     studentId: "650123456",
   });
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_700Bold,
+  });
 
   const [isEditing, setIsEditing] = useState(false);
+
+  if (!fontsLoaded) {
+    return null; // รอโหลดฟอนต์ก่อน
+  }
 
   // ฟังก์ชันสำหรับการล้างข้อมูล (Clear Data)
   const handleClearData = () => {
@@ -55,20 +67,23 @@ const Profile = () => {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Profile Header - Pink Style */}
+
+
         <View style={styles.headerSection}>
           <View style={styles.avatarContainer}>
-            <Ionicons name="person-circle" size={110} color="#FF748C" />
+            <Ionicons name="person-circle" size={110} color="#FFCFE1" />
             <TouchableOpacity style={styles.editIcon}>
               <Ionicons name="camera" size={20} color="#FFF" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.mainTitle}>{profile.name}</Text>
-          <Text style={styles.subTitle}>นิสิตชั้นปีที่ {profile.year}</Text>
+          <View>
+            <Text style={styles.ProfileLabel}>โปรไฟล์ & การตั้งค่า</Text>
+            <Text style={styles.ProfileLabelDes}>จัดการตั้งค่าข้อมูล</Text>
+          </View>
         </View>
-
         {/* Info Section - Pink Borders */}
         <View style={styles.infoCard}>
+          <Text style={styles.ProfileLabelinput}>โปรไฟล์ & การตั้งค่า</Text>
           <View style={styles.infoRow}>
             <Text style={styles.label}>ชื่อ-นามสกุล</Text>
             {isEditing ? (
@@ -108,35 +123,53 @@ const Profile = () => {
               <Text style={styles.value}>{profile.year}</Text>
             )}
           </View>
+          {/* Action Buttons - Pink Theme */}
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              { backgroundColor: isEditing ? "#00B894" : "#FF748C" },
+            ]}
+            onPress={toggleEdit}
+          >
+            <Ionicons
+              name={isEditing ? "save-outline" : "create-outline"}
+              size={20}
+              color="#FFF"
+            />
+            <Text style={styles.actionBtnText}>
+              {isEditing ? "บันทึกข้อมูล" : "แก้ไขโปรไฟล์"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.infoCardDetail}>
+          <Text style={styles.biglabel}>รายละเอียด แอพพลิเคชั่น</Text>
+          <Text><Text style={styles.smalllabel}>Version</Text> : <Text style={styles.color_detail_app}>1.0.0</Text> </Text>
+          <Text><Text style={styles.smalllabel}>Storage</Text> : <Text style={styles.color_detail_app}>Firebase</Text></Text>
+          <Text style={styles.color_detail_app}>
+            StudySync คือแอปพลิเคชันจัดการชีวิตนักศึกษาแบบครบวงจร
+            ที่ช่วยเชื่อมโยงตารางเรียน การสอบ และ แผนการ อ่านหนังสือ ไว้ในที่เดียวเพื่อให้
+            ผู้ใช้งานไม่พลาด ทุกกิจกรรมสำคัญผ่านระบบ Dashboard อัจฉริยะและการจัดการ Task
+            ที่มีประสิทธิภาพ
+          </Text>
         </View>
 
-        {/* Action Buttons - Pink Theme */}
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            { backgroundColor: isEditing ? "#00B894" : "#FF748C" },
-          ]}
-          onPress={toggleEdit}
-        >
-          <Ionicons
-            name={isEditing ? "save-outline" : "create-outline"}
-            size={20}
-            color="#FFF"
-          />
-          <Text style={styles.actionBtnText}>
-            {isEditing ? "บันทึกข้อมูล" : "แก้ไขโปรไฟล์"}
-          </Text>
-        </TouchableOpacity>
+
+        <View style={styles.infoCardClearData}>
+          <Text style={styles.cleardatalabel}>จัดการข้อมูลนิสิต</Text>
+          <Text style={styles.cleardataDes}>ล้างข้อมูลทั้งหมดของคุณ รวมถึงตารางเรียน, การสอบ, กิจกรรม, งานที่ต้องศึกษา และข้อมูลโปรไฟล์</Text>
+          <TouchableOpacity style={styles.clearBtn} onPress={handleClearData}>
+            <Ionicons name="trash-bin-outline" size={25} color="#FF7675" />
+            <Text style={styles.clearBtnText}>
+              Clear All data
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.infoCardTips}>
+            <Text>Tips</Text>
+        </View>
 
         <View style={styles.divider} />
-
-        <TouchableOpacity style={styles.clearBtn} onPress={handleClearData}>
-          <Ionicons name="trash-bin-outline" size={20} color="#FF7675" />
-          <Text style={styles.clearBtnText}>
-            ล้างข้อมูลแอปพลิเคชัน (Clear Data)
-          </Text>
-        </TouchableOpacity>
-
         <Text style={styles.versionText}>StudySync v1.0.0 🌸</Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -146,7 +179,7 @@ const Profile = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF0F3" }, // พื้นหลังขาวชมพู
   scrollContent: { padding: 20, alignItems: "center" },
-  headerSection: { alignItems: "center", marginBottom: 30 },
+  headerSection: { alignItems: "center", marginBottom: 30, flexDirection: 'row', backgroundColor: '#FFB1D0', borderRadius: 15, padding: 20, paddingRight: 80 },
   avatarContainer: { position: "relative" },
   editIcon: {
     position: "absolute",
@@ -177,9 +210,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
   },
+  infoCardDetail: {
+    backgroundColor: "#FFF",
+    gap: 10,
+    width: "100%",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#FF748C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+  },
+  infoCardClearData: {
+    backgroundColor: "#FFF",
+    gap: 10,
+    width: "100%",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#FF748C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+  },
+  infoCardTips: {
+    backgroundColor: "#FFDCE8",
+    gap: 10,
+    width: "100%",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
+    borderColor:"#000000",
+    borderWidth:1,
+    shadowColor: "#FF748C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+  },
   infoRow: { marginBottom: 15 },
-  label: { fontSize: 13, color: "#FFB7C5", marginBottom: 5, fontWeight: "600" },
-  value: { fontSize: 17, color: "#4A4A4A", fontWeight: "500" },
+  label: { fontSize: 13, color: "#000000", marginBottom: 5, fontWeight: "600" },
+  value: { fontSize: 17, color: "#FF748C", fontWeight: "500" },
   input: {
     borderBottomWidth: 1,
     borderBottomColor: "#FFDAE0",
@@ -220,8 +294,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "transparent",
   },
-  clearBtnText: { color: "#FF7675", fontWeight: "bold", marginLeft: 10 },
+  clearBtnText: { color: "#FF7675", fontWeight: "bold", marginLeft: 10, fontSize: 20, fontFamily: "Inter_700Bold" },
   versionText: { marginTop: 30, color: "#FFB7C5", fontSize: 12 },
+  ProfileLabel: { color: "#fff", fontSize: 20, fontFamily: "Inter_700Bold" },
+  ProfileLabelDes: { color: "#fff", fontSize: 15, fontFamily: "Inter_400Regular" },
+  ProfileLabelinput: { color: "#000000", fontSize: 20, fontFamily: "Inter_700Bold" },
+  biglabel: { color: "#000000", fontSize: 20, fontFamily: "Inter_700Bold" },
+  smalllabel: { color: "#000000", fontSize: 15, fontFamily: "Inter_700Bold" },
+  color_detail_app: { color: "#A87BAB", fontSize: 15, fontFamily: "Inter_400Regular" },
+  cleardatalabel: { color: "#E06B8B", fontSize: 20, fontFamily: "Inter_700Bold" },
+  cleardataDes: { color: "#A87BAB", fontSize: 15, fontFamily: "Inter_400Regular", marginLeft: 10 },
+
 });
 
 export default Profile;
