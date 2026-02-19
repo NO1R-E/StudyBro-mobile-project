@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
+import Entypo from '@expo/vector-icons/Entypo';
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 
 const Profile = () => {
@@ -166,7 +168,23 @@ const Profile = () => {
         </View>
 
         <View style={styles.infoCardTips}>
-            <Text>Tips</Text>
+          <Text style={styles.labelTip}><AntDesign name="sun" size={24} color="#fff" />  Tips</Text>
+          <View style={{ flexDirection: 'row' }}>
+            <Entypo name="dot-single" size={24} color="#A87BAB" />
+            <Text style={styles.TipDes}>เพิ่มตารางเรียนของคุณในเมนู "Timetable" {"\n"}เพื่อให้เข้าถึงข้อมูลได้อย่างรวดเร็ว</Text>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Entypo name="dot-single" size={24} color="#A87BAB" />
+            <Text style={styles.TipDes}>ตั้งค่าวันสอบเพื่อรับการแจ้งเตือนบนหน้า{"\n"}Dashboard ของคุณ</Text>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Entypo name="dot-single" size={24} color="#A87BAB" />
+            <Text style={styles.TipDes}>ใช้ฟีเจอร์ "Quick Add" เพื่อสร้างงานที่ต้องอ่านหนังสือหรือทำการบ้านได้ทันที</Text>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Entypo name="dot-single" size={24} color="#A87BAB" />
+            <Text style={styles.TipDes}>ติดตามกิจกรรมต่างๆ ของคุณและทำเครื่องหมาย {"\n"}เมื่อทำเสร็จสิ้นแล้ว</Text>
+          </View>
         </View>
 
         <View style={styles.divider} />
@@ -244,8 +262,8 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     elevation: 4,
-    borderColor:"#000000",
-    borderWidth:1,
+    borderColor: "#000000",
+    borderWidth: 1,
     shadowColor: "#FF748C",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -304,6 +322,8 @@ const styles = StyleSheet.create({
   color_detail_app: { color: "#A87BAB", fontSize: 15, fontFamily: "Inter_400Regular" },
   cleardatalabel: { color: "#E06B8B", fontSize: 20, fontFamily: "Inter_700Bold" },
   cleardataDes: { color: "#A87BAB", fontSize: 15, fontFamily: "Inter_400Regular", marginLeft: 10 },
+  labelTip: { color: '#E06B8B', fontSize: 20, fontFamily: "Inter_700Bold" },
+  TipDes: { color: '#A87BAB', fontSize: 16, fontFamily: "Inter_400Regular" },
 
 });
 
