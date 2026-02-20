@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Menu, Button } from "react-native-paper";
 import {
   View,
@@ -22,7 +22,7 @@ const Timetable = () => {
     Inter_400Regular,
     Inter_700Bold,
   });
-  // สถานะสำหรับฟอร์มข้อมูล
+
   const [subject, setSubject] = useState({
     code: "",
     name: "",
@@ -37,7 +37,7 @@ const Timetable = () => {
     {
       id: "1",
       day: "Monday",
-      code: "CS101",
+      code: "01418497",
       name: "Computer Prog",
       room: "405",
       start: "09:00",
@@ -46,13 +46,46 @@ const Timetable = () => {
     {
       id: "2",
       day: "Tuesday",
-      code: "MA102",
+      code: "01418342",
       name: "Calculus I",
       room: "202",
       start: "13:00",
       end: "15:00",
     },
   ]);
+
+  const [examList, setExamList] = useState(
+    classes.map((c) => ({
+      id: c.id,
+      code: c.code,
+      name: c.name,
+      section: "700", // ถ้ามีจริงค่อยดึงจาก c.section
+      examDate: "",
+      startTime: "",
+      endTime: "",
+      room: "",
+    }))
+  );
+  useEffect(() => {
+    setExamList((prev) => {
+      return classes.map((c) => {
+        const existing = prev.find((e) => e.id === c.id);
+
+        return existing
+          ? existing
+          : {
+            id: c.id,
+            code: c.code,
+            name: c.name,
+            examDate: "",
+            startTime: "",
+            endTime: "",
+            room: "",
+          };
+      });
+    });
+  }, [classes]);
+
 
   const dayThemes = new Map([
     ["Monday", {
@@ -99,7 +132,7 @@ const Timetable = () => {
     }],
   ]);
 
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const handleAddSubject = () => {
     if (!subject.name || !subject.code) {
@@ -120,6 +153,7 @@ const Timetable = () => {
   };
 
 
+
   return (
     <View style={styles.container}>
       {/* 1. Toggle ระหว่าง ตารางเรียน / ตารางสอบ */}
@@ -131,7 +165,7 @@ const Timetable = () => {
           <Text
             style={mode === "class" ? styles.activeText : styles.inactiveText}
           >
-            Time  table
+            Time table
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -201,8 +235,7 @@ const Timetable = () => {
                   >
                     {day}
                   </Text>
-                  <TouchableOpacity>
-
+                  <TouchableOpacity onPress={() => setModalVisible(true)}>
                     <Feather name="edit" size={24} color="black" />
                   </TouchableOpacity>
                 </View>
@@ -249,7 +282,50 @@ const Timetable = () => {
         </ScrollView>
       )}
 
-      {mode === "exam" && <Text>📝 แสดงตารางสอบ</Text>}
+      {mode === "exam" && (
+        <ScrollView style={styles.containerExam}>
+          <View style={styles.examCard}>
+
+            <View style={{flexDirection:'row',justifyContent:'space-between'}}>
+              <Text style={styles.title}>Exam Schedule</Text>
+              <TouchableOpacity onPress={() => setModalVisible(true)}>
+                <Feather name="edit" size={24} color="black" />
+              </TouchableOpacity>
+            </View>
+
+            {examList.map((item) => (
+              <View key={item.id} style={styles.examCardMini}>
+                <View style={{ flexDirection: 'row', gap: 20 }}>
+                  <View>
+                    <Text style={styles.examValue}>
+                      {item.examDate || "กรุณากรอกวันสอบ"}
+                    </Text>
+
+                    <Text style={styles.examValue}>
+                      {item.startTime && item.endTime
+                        ? `${item.startTime} - ${item.endTime}`
+                        : "กรุณากรอกเวลาสอบ"}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.examDatail}>
+                      {item.code} sec {item.section}
+                    </Text>
+
+                    <Text style={styles.examDatail}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.examDatail}>
+                      ห้อง : <Text style={styles.examValue}>{item.room || "ติดต่อผู้สอน"}</Text>
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+
+          </View>
+        </ScrollView>
+      )}
 
 
       {/* 4. Modal ฟอร์มสำหรับ เพิ่ม/แก้ไขข้อมูล */}
@@ -312,8 +388,6 @@ const Timetable = () => {
         </View>
       </Modal>
 
-
-
     </View>
   );
 };
@@ -335,8 +409,8 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   activeBtn: { backgroundColor: "#FFAAC9", elevation: 8 },
-  activeText: { color: "#FFF", elevation: 8, fontFamily: "Inter_700Bold", fontSize: 20 },
-  inactiveText: { color: "#9B7B8E", fontFamily: "Inter_700Bold", fontSize: 20 },
+  activeText: { color: "#FFF", elevation: 8, fontFamily: "Inter_700Bold", fontSize: 18 },
+  inactiveText: { color: "#9B7B8E", fontFamily: "Inter_700Bold", fontSize: 18 },
   listArea: { paddingHorizontal: 15 },
   daySection: {
     marginBottom: 20, borderWidth: 1,
@@ -362,7 +436,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     elevation: 2,
   },
-  timeLabel: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  timeLabel: { fontFamily: "Inter_700Bold", fontSize: 16 },
   classlabel: { fontFamily: "Inter_400Regular", fontSize: 14 },
   deleteBtn: { color: "#FF7675", fontWeight: "bold" },
   emptyText: { color: "#B2BEC3", fontStyle: "italic", marginLeft: 15 },
@@ -370,7 +444,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderWidth: 1.5,
     marginHorizontal: 15,
-    marginBottom:10,
+    marginBottom: 10,
     borderColor: "#C7005C",
     padding: 15,
     borderRadius: 12,
@@ -405,6 +479,51 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#FFF", fontWeight: "bold" },
   cancelBtn: { padding: 10, alignItems: "center" },
   cancelBtnText: { color: "#636E72" },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#FE7CAB",
+    marginBottom: 15,
+  }, examCard: {
+    backgroundColor: "#FDF2F8",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: "#FFB0F3",
+  },
+  examCardMini: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 15,
+  },
+  inputBox: {
+    borderWidth: 1.5,
+    borderColor: "#FFAAC9",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  inputText: {
+    color: "#999",
+  },
+  containerExam: {
+    paddingHorizontal: 15,
+
+  },
+
+  examValue: {
+    color: "#C7005C",
+    fontFamily: "Inter_700Bold",
+    fontSize: 15
+  },
+  examDatail: {
+    color: "#E75480",
+    fontFamily: "Inter_400Regular",
+    fontSize: 15
+  },
+
 });
 
 export default Timetable;
