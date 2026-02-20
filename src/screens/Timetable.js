@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
+import Feather from '@expo/vector-icons/Feather';
 
 const Timetable = () => {
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
@@ -53,6 +54,51 @@ const Timetable = () => {
     },
   ]);
 
+  const dayThemes = new Map([
+    ["Monday", {
+      text: "#A66100",
+      border: "#FFF085",
+      background: "#FEFCE8",
+      detail: "#D98D22"
+    }],
+    ["Tuesday", {
+      text: "#C7005C",
+      border: "#FCCEE8",
+      background: "#FDF2F8"
+      , detail: "#EA3287"
+    }],
+    ["Wednesday", {
+      text: "#078537",
+      border: "#B9F8CF",
+      background: "#F0FDF4"
+      , detail: "#2EB461"
+    }],
+    ["Thursday", {
+      text: "#c77700",
+      border: "#ffbd43",
+      background: "#fff1de"
+      , detail: "#a5742e"
+    }],
+    ["Friday", {
+      text: "#00838F",
+      border: "#26C6DA",
+      background: "#E0F7FA"
+      , detail: "#2da8b8"
+    }],
+    ["Saturday", {
+      text: "#5e058b",
+      border: "#e999ff",
+      background: "#fbe5ff"
+      , detail: "#852a99"
+    }],
+    ["Sunday", {
+      text: "#8f0000",
+      border: "#ff8080",
+      background: "#ffe2e2"
+      , detail: "#ba2c2c"
+    }],
+  ]);
+
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
   const handleAddSubject = () => {
@@ -73,9 +119,6 @@ const Timetable = () => {
     });
   };
 
-  const deleteSubject = (id) => {
-    setClasses(classes.filter((item) => item.id !== id));
-  };
 
   return (
     <View style={styles.container}>
@@ -88,7 +131,7 @@ const Timetable = () => {
           <Text
             style={mode === "class" ? styles.activeText : styles.inactiveText}
           >
-            Time table
+            Time  table
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -102,54 +145,112 @@ const Timetable = () => {
           </Text>
         </TouchableOpacity>
       </View>
-      <CustomDropdown
-        renderItem={(item) => (
-          <View style={{ flexDirection: "row" }}>
-            <Text>{item.title}</Text>
-            <Text>📚</Text>
-          </View>
-        )}
-      />
-      {/* 2. รายการตาราง (แยกตามวัน) */}
-      <ScrollView style={styles.listArea}>
-        {days.map((day) => (
-          <View key={day} style={styles.daySection}>
-            <Text style={styles.dayTitle}>{day}</Text>
-            {classes.filter((c) => c.day === day).length === 0 ? (
-              <Text style={styles.emptyText}>ไม่มีเรียนวันนี้</Text>
-            ) : (
-              classes
-                .filter((c) => c.day === day)
-                .map((item) => (
-                  <View key={item.id} style={styles.classCard}>
-                    <View style={styles.classInfo}>
-                      <Text style={styles.timeLabel}>
-                        {item.start} - {item.end}
-                      </Text>
-                      <Text style={styles.subjectLabel}>
-                        {item.code}: {item.name}
-                      </Text>
-                      <Text style={styles.roomLabel}>ห้อง: {item.room}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => deleteSubject(item.id)}>
-                      <Text style={styles.deleteBtn}>ลบ</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))
-            )}
-          </View>
-        ))}
-      </ScrollView>
 
-      {/* 3. ปุ่มกดเพิ่มข้อมูล */}
       <TouchableOpacity
         style={styles.addBtn}
         onPress={() => setModalVisible(true)}
       >
         <Text style={styles.addBtnText}>
-          + เพิ่ม{mode === "class" ? "วิชาเรียน" : "ตารางสอบ"}
+          + {mode === "class" ? "Edit Group" : "Add Date"}
         </Text>
       </TouchableOpacity>
+
+      {mode === "class" && (
+        <CustomDropdown
+          placeholder="Semester 1"
+          data={[
+            { label: "Semester 1", value: 1 },
+            { label: "Semester 2", value: 2 },
+            { label: "Summer", value: 3 },
+          ]}
+          onSelect={(item) => console.log(item)}
+        />
+      )}
+
+      {mode === "class" && (
+        <ScrollView style={styles.listArea}>
+          {days.map((day) => {
+            const theme = dayThemes.get(day) || {
+              text: "#333",
+              background: "#EEE",
+            };
+
+            return (
+              <View
+                key={day}
+                style={[
+                  styles.daySection,
+                  {
+                    backgroundColor: theme?.background,
+                    borderColor: theme?.border,
+                    borderWidth: 2,
+                  },
+                ]}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+
+                  <Text
+                    style={[
+                      styles.dayTitle,
+                      {
+                        color: theme?.text,
+                        borderLeftColor: theme?.text,
+                        borderLeftWidth: 4,
+                      },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                  <TouchableOpacity>
+
+                    <Feather name="edit" size={24} color="black" />
+                  </TouchableOpacity>
+                </View>
+
+                {classes.filter((c) => c.day === day).length === 0 ? (
+                  <Text style={[
+                    styles.emptyText,
+                    { color: theme?.detail },
+                  ]}>ไม่มีเรียนวันนี้</Text>
+                ) : (
+                  classes
+                    .filter((c) => c.day === day)
+                    .map((item) => (
+                      <View key={item.id} style={styles.classCard}>
+                        <View style={{ flexDirection: 'row', gap: 20 }}>
+                          <Text style={[
+                            styles.timeLabel,
+                            { color: theme?.text },
+                          ]}>
+                            {item.start} - {item.end}
+                          </Text>
+                          <View>
+                            <Text style={[
+                              styles.classlabel,
+                              { color: theme?.detail },
+                            ]}>{item.code} sec 700</Text>
+                            <Text style={[
+                              styles.classlabel,
+                              { color: theme?.detail },
+                            ]}>{item.name}</Text>
+                            <Text style={[
+                              styles.classlabel,
+                              { color: theme?.detail },
+                            ]}>ห้อง: {item.room}</Text>
+                          </View>
+                        </View>
+
+                      </View>
+                    ))
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {mode === "exam" && <Text>📝 แสดงตารางสอบ</Text>}
+
 
       {/* 4. Modal ฟอร์มสำหรับ เพิ่ม/แก้ไขข้อมูล */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
@@ -210,16 +311,19 @@ const Timetable = () => {
           </View>
         </View>
       </Modal>
+
+
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  container: { flex: 1, backgroundColor: "#F9E2EB" },
   toggleContainer: {
     flexDirection: "row",
     margin: 15,
-    backgroundColor: "#ede4eb",
+    backgroundColor: "#ffffff",
     borderRadius: 25,
     overflow: "hidden",
     padding: 5,
@@ -230,18 +334,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 25,
   },
-  activeBtn: { backgroundColor: "#FFAAC9" },
-  activeText: { color: "#FFF", fontWeight: "bold" },
-  inactiveText: { color: "#9B7B8E" },
+  activeBtn: { backgroundColor: "#FFAAC9", elevation: 8 },
+  activeText: { color: "#FFF", elevation: 8, fontFamily: "Inter_700Bold", fontSize: 20 },
+  inactiveText: { color: "#9B7B8E", fontFamily: "Inter_700Bold", fontSize: 20 },
   listArea: { paddingHorizontal: 15 },
-  daySection: { marginBottom: 20 },
+  daySection: {
+    marginBottom: 20, borderWidth: 1,
+    padding: 10,
+    borderRadius: 12,
+  },
   dayTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#2D3436",
     marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: "#6C5CE7",
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
     paddingLeft: 10,
   },
   classCard: {
@@ -254,19 +362,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     elevation: 2,
   },
-  timeLabel: { fontSize: 12, color: "#6C5CE7", fontWeight: "600" },
-  subjectLabel: { fontSize: 16, fontWeight: "bold", marginVertical: 2 },
-  roomLabel: { fontSize: 13, color: "#B2BEC3" },
+  timeLabel: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  classlabel: { fontFamily: "Inter_400Regular", fontSize: 14 },
   deleteBtn: { color: "#FF7675", fontWeight: "bold" },
   emptyText: { color: "#B2BEC3", fontStyle: "italic", marginLeft: 15 },
   addBtn: {
-    backgroundColor: "#FF7675",
-    margin: 15,
+    backgroundColor: "#ffffff",
+    borderWidth: 1.5,
+    marginHorizontal: 15,
+    marginBottom:10,
+    borderColor: "#C7005C",
     padding: 15,
     borderRadius: 12,
     alignItems: "center",
+    borderStyle: 'dashed'
   },
-  addBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
+  addBtnText: { color: "#FF9EC1", fontWeight: "bold", fontSize: 16, fontFamily: "Inter_700Bold", fontSize: 20 },
   // Modal Styles
   modalOverlay: {
     flex: 1,
