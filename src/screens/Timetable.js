@@ -12,11 +12,15 @@ import {
   Alert,
 } from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
+import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 
 const Timetable = () => {
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
   const [modalVisible, setModalVisible] = useState(false);
-
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_700Bold,
+  });
   // สถานะสำหรับฟอร์มข้อมูล
   const [subject, setSubject] = useState({
     code: "",
@@ -84,7 +88,7 @@ const Timetable = () => {
           <Text
             style={mode === "class" ? styles.activeText : styles.inactiveText}
           >
-            ตารางเรียน
+            Time table
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -94,7 +98,7 @@ const Timetable = () => {
           <Text
             style={mode === "exam" ? styles.activeText : styles.inactiveText}
           >
-            ตารางสอบ
+            Exam Schedule
           </Text>
         </TouchableOpacity>
       </View>

@@ -23,7 +23,7 @@ const App = () => {
 
               if (route.name === "Home") {
                 iconName = focused ? "home" : "home-outline";
-              } else if (route.name === "Academic") {
+              } else if (route.name === "Timetable") {
                 iconName = focused ? "calendar" : "calendar-outline";
               } else if (route.name === "Planner") {
                 iconName = focused ? "heart" : "heart-outline"; // เปลี่ยนเป็นหัวใจให้เข้ากับสีชมพู
@@ -105,7 +105,7 @@ const App = () => {
             }}
           />
           <Tab.Screen
-            name="Academic"
+            name="Timetable"
             component={Timetable}
             options={{
               headerTitle: () => (
@@ -126,7 +126,7 @@ const App = () => {
                       fontWeight: "bold",
                     }}
                   >
-                    Academic
+                    Timetable
                   </Text>
                 </View>
               ),

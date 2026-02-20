@@ -17,8 +17,6 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 
 
 const Profile = () => {
-
-
   // สร้าง State สำหรับเก็บข้อมูลโปรไฟล์
   const [profile, setProfile] = useState({
     name: "สมหญิง รักเรียน",
