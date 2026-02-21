@@ -165,7 +165,7 @@ const Timetable = () => {
           <Text
             style={mode === "class" ? styles.activeText : styles.inactiveText}
           >
-            Time table
+            Time-table
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -175,7 +175,7 @@ const Timetable = () => {
           <Text
             style={mode === "exam" ? styles.activeText : styles.inactiveText}
           >
-            Exam Schedule
+            Exam-Schedule
           </Text>
         </TouchableOpacity>
       </View>
