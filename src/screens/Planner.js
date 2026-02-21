@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import AntDesign from '@expo/vector-icons/AntDesign';
 
 const StudySyncScreen = () => {
   // --- State สำหรับฟอร์ม Modal ---
   const [modalVisible, setModalVisible] = useState(false);
   const [activityName, setActivityName] = useState('');
   const [category, setCategory] = useState('study'); // 'study' | 'other'
-  
+
   const [activityDate, setActivityDate] = useState(new Date());
   const [startTime, setStartTime] = useState(new Date());
   const [endTime, setEndTime] = useState(new Date(new Date().setHours(new Date().getHours() + 1)));
@@ -19,6 +22,11 @@ const StudySyncScreen = () => {
 
   // --- State สำหรับ Filter หมวดหมู่กล่องบน ---
   const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'study' | 'other'
+
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_700Bold,
+  });
 
   // --- State รวมข้อมูลทั้งหมด ---
   const [tasks, setTasks] = useState([]);
@@ -36,8 +44,8 @@ const StudySyncScreen = () => {
     setTasks(tasks.map(task => {
       if (task.id === id) {
         let nextStatus = 'pending';
-        if (task.status === 'pending') nextStatus = 'completed';      
-        else if (task.status === 'completed') nextStatus = 'missed'; 
+        if (task.status === 'pending') nextStatus = 'completed';
+        else if (task.status === 'completed') nextStatus = 'missed';
         return { ...task, status: nextStatus };
       }
       return task;
@@ -48,7 +56,7 @@ const StudySyncScreen = () => {
   const activeTasks = tasks.filter(task => {
     // เงื่อนไข 1: ต้องเป็นสถานะ 'รอดำเนินการ' เท่านั้น (ถ้ากดเสร็จแล้ว หรือพลาดแล้ว จะไม่โชว์)
     if (task.status !== 'pending') return false;
-    
+
     // เงื่อนไข 2: ยังไม่หมดเวลา (เวลาปัจจุบัน ต้องน้อยกว่า เวลาสิ้นสุดของกิจกรรม)
     if (currentTime > task.endTimeMs) return false;
 
@@ -59,7 +67,7 @@ const StudySyncScreen = () => {
   });
 
   // ================= 2. ลอจิกกล่องล่าง (รายการตรวจสอบแผนกิจกรรมทั้งหมด) =================
-  const checklistTasks = tasks; 
+  const checklistTasks = tasks;
   const completedCount = checklistTasks.filter(item => item.status === 'completed').length;
   const totalCount = checklistTasks.length;
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -80,18 +88,18 @@ const StudySyncScreen = () => {
       const newTask = {
         id: Date.now(),
         title: activityName,
-        category: category, 
+        category: category,
         dateString: formatDate(activityDate),
         timeString: `${formatTime(startTime)} - ${formatTime(endTime)}`,
         endTimeMs: endDateTime.getTime(), // เก็บค่า Timestamp ไว้เช็คว่าหมดเวลาหรือยัง
-        status: 'pending' 
+        status: 'pending'
       };
-      
+
       setTasks([...tasks, newTask]);
-      
+
       // Reset Form 
       setActivityName('');
-      setCategory('study'); 
+      setCategory('study');
       setActivityDate(new Date());
       setStartTime(new Date());
       setEndTime(new Date(new Date().setHours(new Date().getHours() + 1)));
@@ -102,15 +110,15 @@ const StudySyncScreen = () => {
 
   return (
     <View style={styles.container}>
-      
+
       {/* ================= MODAL POP-UP ================= */}
       <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>เพิ่มกิจกรรมใหม่</Text>
-            
+
             <TextInput style={styles.input} placeholder="ชื่อกิจกรรม (เช่น ส่งใบงาน)" value={activityName} onChangeText={setActivityName} />
-            
+
             <Text style={styles.label}>หมวดหมู่กิจกรรม</Text>
             <View style={styles.categoryRow}>
               <TouchableOpacity style={[styles.categoryButton, category === 'study' && styles.categoryButtonActive]} onPress={() => setCategory('study')}>
@@ -144,9 +152,9 @@ const StudySyncScreen = () => {
               </View>
             </View>
 
-            {showDatePicker && <DateTimePicker value={activityDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if(d) setActivityDate(d); }} />}
-            {showStartTimePicker && <DateTimePicker value={startTime} mode="time" display="default" onChange={(e, t) => { setShowStartTimePicker(false); if(t) setStartTime(t); }} />}
-            {showEndTimePicker && <DateTimePicker value={endTime} mode="time" display="default" onChange={(e, t) => { setShowEndTimePicker(false); if(t) setEndTime(t); }} />}
+            {showDatePicker && <DateTimePicker value={activityDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setActivityDate(d); }} />}
+            {showStartTimePicker && <DateTimePicker value={startTime} mode="time" display="default" onChange={(e, t) => { setShowStartTimePicker(false); if (t) setStartTime(t); }} />}
+            {showEndTimePicker && <DateTimePicker value={endTime} mode="time" display="default" onChange={(e, t) => { setShowEndTimePicker(false); if (t) setEndTime(t); }} />}
 
             <View style={styles.modalButtonRow}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
@@ -169,7 +177,7 @@ const StudySyncScreen = () => {
         </View>
 
         {/* ================= กล่องบน: กิจกรรมที่กำลังดำเนินการ ================= */}
-        <View style={[styles.sectionCard, { minHeight: 200 }]}> 
+        <View style={[styles.sectionCard, { minHeight: 200 }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>กิจกรรมนอกหลักสูตร</Text>
             <TouchableOpacity style={styles.addButton} onPress={() => { setModalVisible(true); }}>
@@ -193,9 +201,13 @@ const StudySyncScreen = () => {
           )}
 
           {activeTasks.length === 0 ? (
-             <View style={styles.emptyFilteredContainer}>
-               <Text style={styles.emptySubText}>ไม่มีกิจกรรมที่กำลังดำเนินการ</Text>
-             </View>
+            <View style={styles.emptyFilteredContainer}>
+              <AntDesign name="plus-circle" size={168} color="#F2F2F2" />
+              <View >
+                <Text style={styles.emptySubText}>ยังไม่มีกิจกรรมในขณะนี้</Text>
+                <Text style={styles.emptySubText}>เพิ่มกิจกรรมนอกหลักสูตรของคุณได้เลย</Text>
+              </View>
+            </View>
           ) : (
             activeTasks.map((item) => (
               <View key={item.id} style={styles.listItemRow}>
@@ -217,15 +229,16 @@ const StudySyncScreen = () => {
             <Text style={styles.sectionTitle}>รายการตรวจสอบแผนกิจกรรม</Text>
             <Text style={styles.progressText}>{completedCount}/{totalCount}</Text>
           </View>
-          
+
           <View style={styles.progressBarBg}>
             <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
           </View>
 
           {checklistTasks.length === 0 ? (
-             <View style={styles.emptyFilteredContainer}>
-               <Text style={styles.emptySubText}>ยังไม่มีรายการที่ต้องทำ</Text>
-             </View>
+            <View style={styles.emptyFilteredContainer}>
+              <FontAwesome5 name="check" size={128} color="#F2F2F2" />
+              <Text style={styles.emptySubText}>ยังไม่มีงานที่ต้องศึกษาหรือทำในขณะนี้</Text>
+            </View>
           ) : (
             checklistTasks.map((plan) => (
               <View key={plan.id} style={styles.checklistRow}>
@@ -257,19 +270,19 @@ const StudySyncScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F9E2EB' },
   scrollContent: { padding: 20 },
-  
-  banner: { backgroundColor: '#F8BBD0', padding: 20, borderRadius: 20, marginBottom: 20 },
-  bannerTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginBottom: 5 },
-  bannerSubtitle: { fontSize: 12, color: '#fff', opacity: 0.9 },
-  
+
+  banner: { backgroundColor: '#FFB1D0', padding: 20, borderRadius: 20, marginBottom: 20 },
+  bannerTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#fff', marginBottom: 5 },
+  bannerSubtitle: { fontSize: 15, fontFamily: 'Inter_400Regular', color: '#fff' },
+
   sectionCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, elevation: 2 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#000' },
-  addButton: { backgroundColor: '#F06292', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
-  addButtonText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  
+  sectionTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#000' },
+  addButton: { backgroundColor: '#FF9EC1', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
+  addButtonText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
+
   // Styles สำหรับ Filter หมวดหมู่
   filterContainer: { flexDirection: 'row', marginBottom: 15, gap: 10 },
   filterBtn: { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#EEEEEE' },
@@ -282,7 +295,7 @@ const styles = StyleSheet.create({
   dateText: { color: '#E91E63', fontWeight: 'bold', fontSize: 12 },
   timeText: { color: '#E91E63', fontSize: 12 },
   taskName: { fontSize: 14, color: '#E91E63', textAlign: 'center', paddingHorizontal: 10 },
-  
+
   // กล่องล่าง
   checklistRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   checklistDate: { color: '#E91E63', fontWeight: 'bold', fontSize: 12 },
@@ -292,13 +305,13 @@ const styles = StyleSheet.create({
   progressText: { fontSize: 12, color: '#BDBDBD' },
   progressBarBg: { height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, marginBottom: 10 },
   progressBarFill: { height: 6, backgroundColor: '#A5D6A7', borderRadius: 3 },
-  emptyFilteredContainer: { alignItems: 'center', paddingVertical: 20 },
-  emptySubText: { color: '#BDBDBD', fontSize: 12 },
+  emptyFilteredContainer: { alignItems: 'center', paddingVertical: 20,gap:20 },
+  emptySubText: { color: '#BEBABA', fontSize: 13, fontFamily: "Inter_400Regular" ,textAlign:'center' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContainer: { width: '85%', backgroundColor: '#fff', borderRadius: 20, padding: 25 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#E91E63', marginBottom: 20, textAlign: 'center' },
+  modalTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#E91E63', marginBottom: 20, textAlign: 'center' },
   input: { backgroundColor: '#F5F5F5', borderRadius: 10, padding: 12, marginBottom: 15, fontSize: 14 },
   label: { fontSize: 12, color: 'gray', marginBottom: 5, marginLeft: 5 },
   pickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 10, padding: 12, marginBottom: 15 },
