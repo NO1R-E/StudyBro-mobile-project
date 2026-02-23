@@ -21,6 +21,11 @@ const Dashboard = ({ navigation }) => {
     Inter_400Regular,
     Inter_700Bold,
   });
+  const [currentDate] = useState(new Date());
+   const formatDateOnly = (date) => {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('th-TH', options); 
+  };
 
   // ข้อมูลจำลอง
   const mockClasses = [
@@ -58,7 +63,7 @@ const Dashboard = ({ navigation }) => {
     },
     {
       id: "2",
-      title: "ประชุมโปรเจค StartUp",
+      title: "โปรเจค StartUp",
       date: "2026-02-25",
       time: "18:00",
       location: "Zoom",
@@ -126,8 +131,10 @@ const Dashboard = ({ navigation }) => {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷 </Text>
-        <Text style={styles.dateText}>วันอังคารที่ 17 ก.พ. 2026</Text>
+        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷</Text>
+        
+        {/* ดึงเวลามาตรงนี้นะ*/}
+        <Text style={styles.dateText}>{formatDateOnly(currentDate)}</Text>
       </View>
 
       <View style={styles.quickAddSection}>
