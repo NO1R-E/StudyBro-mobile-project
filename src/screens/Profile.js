@@ -9,20 +9,50 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import * as ImagePicker from "expo-image-picker";
+import { Picker } from "@react-native-picker/picker";
 
 
 const Profile = () => {
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      Alert.alert("you don't have permission to access this");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setAvatar(result.assets[0].uri);
+    }
+  };
+
+  //คณะและสาขา
+  const facultyData = {
+    "ศวท": ["IT", "Computer Science"],
+    "วิศวะ": ["Computer Engineer", "ไฟฟ้า"],
+  };
 
 
   // สร้าง State สำหรับเก็บข้อมูลโปรไฟล์
   const [profile, setProfile] = useState({
     name: "สมหญิง รักเรียน",
     faculty: "อักษรศาสตร์",
+    major: "", 
     year: "2",
     studentId: "650123456",
   });
@@ -33,9 +63,13 @@ const Profile = () => {
 
   const [isEditing, setIsEditing] = useState(false);
 
+  const [avatar, setAvatar] = useState(null);
+
+
   if (!fontsLoaded) {
     return null; // รอโหลดฟอนต์ก่อน
   }
+
 
   // ฟังก์ชันสำหรับการล้างข้อมูล (Clear Data)
   const handleClearData = () => {
@@ -69,16 +103,17 @@ const Profile = () => {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-
-
         <View style={styles.headerSection}>
           <View style={styles.avatarContainer}>
-            <Ionicons name="person-circle" size={110} color="#FFCFE1" />
-            <TouchableOpacity style={styles.editIcon}>
-              <Ionicons name="camera" size={20} color="#FFF" />
+            <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
+              {avatar ? (
+                <Image source={{ uri: avatar }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="person-circle" size={110} color="#110e0f" />
+              )}
             </TouchableOpacity>
           </View>
-          <View>
+          <View style={styles.headerTextContainer}>
             <Text style={styles.ProfileLabel}>โปรไฟล์ & การตั้งค่า</Text>
             <Text style={styles.ProfileLabelDes}>จัดการตั้งค่าข้อมูล</Text>
           </View>
@@ -86,6 +121,7 @@ const Profile = () => {
         {/* Info Section - Pink Borders */}
         <View style={styles.infoCard}>
           <Text style={styles.ProfileLabelinput}>โปรไฟล์ & การตั้งค่า</Text>
+
           <View style={styles.infoRow}>
             <Text style={styles.label}>ชื่อ-นามสกุล</Text>
             {isEditing ? (
@@ -102,13 +138,60 @@ const Profile = () => {
           <View style={styles.infoRow}>
             <Text style={styles.label}>คณะ</Text>
             {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={profile.faculty}
-                onChangeText={(t) => setProfile({ ...profile, faculty: t })}
-              />
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={profile.faculty}
+                  dropdownIconColor="#FF6F91"
+                  style={{
+                    color: "#FF6F91",
+                  }}
+                  onValueChange={(itemValue) =>
+                    setProfile({
+                      ...profile,
+                      faculty: itemValue,
+                      major: "",
+                    })
+                  }
+                >
+                  <Picker.Item label="เลือกคณะ" value="" />
+                  {Object.keys(facultyData).map((faculty) => (
+                    <Picker.Item
+                      key={faculty}
+                      label={faculty}
+                      value={faculty}
+                    />
+                  ))}
+                </Picker>
+              </View>
             ) : (
-              <Text style={styles.value}>{profile.faculty}</Text>
+              <Text style={styles.value}>{profile.faculty || "-"}</Text>
+            )}
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>สาขา</Text>
+            {isEditing ? (
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={profile.major}
+                  enabled={!!profile.faculty}
+                  dropdownIconColor='#FF6F91'
+                  style={{
+                    color: '#FF6F91',
+                  }}
+                  onValueChange={(itemValue) =>
+                    setProfile({ ...profile, major: itemValue })
+                  }
+                >
+                  <Picker.Item label="เลือกสาขา" value="" />
+                  {profile.faculty &&
+                    facultyData[profile.faculty]?.map((major) => (
+                      <Picker.Item key={major} label={major} value={major} />
+                    ))}
+                </Picker>
+              </View>
+            ) : (
+              <Text style={styles.value}>{profile.major || "-"}</Text>
             )}
           </View>
 
@@ -125,7 +208,7 @@ const Profile = () => {
               <Text style={styles.value}>{profile.year}</Text>
             )}
           </View>
-          {/* Action Buttons - Pink Theme */}
+
           <TouchableOpacity
             style={[
               styles.actionBtn,
@@ -145,45 +228,64 @@ const Profile = () => {
         </View>
         <View style={styles.infoCardDetail}>
           <Text style={styles.biglabel}>รายละเอียด แอพพลิเคชั่น</Text>
-          <Text><Text style={styles.smalllabel}>Version</Text> : <Text style={styles.color_detail_app}>1.0.0</Text> </Text>
-          <Text><Text style={styles.smalllabel}>Storage</Text> : <Text style={styles.color_detail_app}>Firebase</Text></Text>
+          <Text>
+            <Text style={styles.smalllabel}>Version</Text> :{" "}
+            <Text style={styles.color_detail_app}>1.0.0</Text>{" "}
+          </Text>
+          <Text>
+            <Text style={styles.smalllabel}>Storage</Text> :{" "}
+            <Text style={styles.color_detail_app}>Firebase</Text>
+          </Text>
           <Text style={styles.color_detail_app}>
             StudySync คือแอปพลิเคชันจัดการชีวิตนักศึกษาแบบครบวงจร
-            ที่ช่วยเชื่อมโยงตารางเรียน การสอบ และ แผนการ อ่านหนังสือ ไว้ในที่เดียวเพื่อให้
-            ผู้ใช้งานไม่พลาด ทุกกิจกรรมสำคัญผ่านระบบ Dashboard อัจฉริยะและการจัดการ Task
-            ที่มีประสิทธิภาพ
+            ที่ช่วยเชื่อมโยงตารางเรียน การสอบ และ แผนการ อ่านหนังสือ
+            ไว้ในที่เดียวเพื่อให้ ผู้ใช้งานไม่พลาด ทุกกิจกรรมสำคัญผ่านระบบ
+            Dashboard อัจฉริยะและการจัดการ Task ที่มีประสิทธิภาพ
           </Text>
         </View>
 
-
         <View style={styles.infoCardClearData}>
           <Text style={styles.cleardatalabel}>จัดการข้อมูลนิสิต</Text>
-          <Text style={styles.cleardataDes}>ล้างข้อมูลทั้งหมดของคุณ รวมถึงตารางเรียน, การสอบ, กิจกรรม, งานที่ต้องศึกษา และข้อมูลโปรไฟล์</Text>
+          <Text style={styles.cleardataDes}>
+            ล้างข้อมูลทั้งหมดของคุณ รวมถึงตารางเรียน, การสอบ, กิจกรรม,
+            งานที่ต้องศึกษา และข้อมูลโปรไฟล์
+          </Text>
           <TouchableOpacity style={styles.clearBtn} onPress={handleClearData}>
             <Ionicons name="trash-bin-outline" size={25} color="#FF7675" />
-            <Text style={styles.clearBtnText}>
-              Clear All data
-            </Text>
+            <Text style={styles.clearBtnText}>Clear All data</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.infoCardTips}>
-          <Text style={styles.labelTip}><AntDesign name="sun" size={24} color="#fff" />  Tips</Text>
-          <View style={{ flexDirection: 'row' }}>
+          <Text style={styles.labelTip}>
+            <AntDesign name="sun" size={24} color="#fff" /> Tips
+          </Text>
+          <View style={{ flexDirection: "row" }}>
             <Entypo name="dot-single" size={24} color="#A87BAB" />
-            <Text style={styles.TipDes}>เพิ่มตารางเรียนของคุณในเมนู "Timetable" {"\n"}เพื่อให้เข้าถึงข้อมูลได้อย่างรวดเร็ว</Text>
+            <Text style={styles.TipDes}>
+              เพิ่มตารางเรียนของคุณในเมนู "Timetable" {"\n"}
+              เพื่อให้เข้าถึงข้อมูลได้อย่างรวดเร็ว
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row' }}>
+          <View style={{ flexDirection: "row" }}>
             <Entypo name="dot-single" size={24} color="#A87BAB" />
-            <Text style={styles.TipDes}>ตั้งค่าวันสอบเพื่อรับการแจ้งเตือนบนหน้า{"\n"}Dashboard ของคุณ</Text>
+            <Text style={styles.TipDes}>
+              ตั้งค่าวันสอบเพื่อรับการแจ้งเตือนบนหน้า{"\n"}Dashboard ของคุณ
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row' }}>
+          <View style={{ flexDirection: "row" }}>
             <Entypo name="dot-single" size={24} color="#A87BAB" />
-            <Text style={styles.TipDes}>ใช้ฟีเจอร์ "Quick Add" เพื่อสร้างงานที่ต้องอ่านหนังสือหรือทำการบ้านได้ทันที</Text>
+            <Text style={styles.TipDes}>
+              ใช้ฟีเจอร์ "Quick Add"
+              เพื่อสร้างงานที่ต้องอ่านหนังสือหรือทำการบ้านได้ทันที
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row' }}>
+          <View style={{ flexDirection: "row" }}>
             <Entypo name="dot-single" size={24} color="#A87BAB" />
-            <Text style={styles.TipDes}>ติดตามกิจกรรมต่างๆ ของคุณและทำเครื่องหมาย {"\n"}เมื่อทำเสร็จสิ้นแล้ว</Text>
+            <Text style={styles.TipDes}>
+              ติดตามกิจกรรมต่างๆ ของคุณและทำเครื่องหมาย {"\n"}
+              เมื่อทำเสร็จสิ้นแล้ว
+            </Text>
           </View>
         </View>
 
@@ -195,10 +297,26 @@ const Profile = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF0F3" }, // พื้นหลังขาวชมพู
+  container: { flex: 1, backgroundColor: "#FFF0F3" },
   scrollContent: { padding: 20, alignItems: "center" },
-  headerSection: { alignItems: "center", marginBottom: 30, flexDirection: 'row', backgroundColor: '#FFB1D0', borderRadius: 15, padding: 20, paddingRight: 80 },
-  avatarContainer: { position: "relative" },
+  headerSection: {
+    alignItems: "center",
+    marginBottom: 30,
+    flexDirection: "row",
+    backgroundColor: "#FFB1D0",
+    borderRadius: 15,
+    padding: 20,
+    paddingRight: 80,
+  },
+  avatarContainer: {
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTextContainer: {
+    marginLeft: 20,
+    justifyContent: "center",
+  },
   editIcon: {
     position: "absolute",
     bottom: 8,
@@ -312,19 +430,63 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "transparent",
   },
-  clearBtnText: { color: "#FF7675", fontWeight: "bold", marginLeft: 10, fontSize: 20, fontFamily: "Inter_700Bold" },
+  clearBtnText: {
+    color: "#FF7675",
+    fontWeight: "bold",
+    marginLeft: 10,
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+  },
   versionText: { marginTop: 30, color: "#FFB7C5", fontSize: 12 },
   ProfileLabel: { color: "#fff", fontSize: 20, fontFamily: "Inter_700Bold" },
-  ProfileLabelDes: { color: "#fff", fontSize: 15, fontFamily: "Inter_400Regular" },
-  ProfileLabelinput: { color: "#000000", fontSize: 20, fontFamily: "Inter_700Bold" },
+  ProfileLabelDes: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  ProfileLabelinput: {
+    color: "#000000",
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+  },
   biglabel: { color: "#000000", fontSize: 20, fontFamily: "Inter_700Bold" },
   smalllabel: { color: "#000000", fontSize: 15, fontFamily: "Inter_700Bold" },
-  color_detail_app: { color: "#A87BAB", fontSize: 15, fontFamily: "Inter_400Regular" },
-  cleardatalabel: { color: "#E06B8B", fontSize: 20, fontFamily: "Inter_700Bold" },
-  cleardataDes: { color: "#A87BAB", fontSize: 15, fontFamily: "Inter_400Regular", marginLeft: 10 },
-  labelTip: { color: '#E06B8B', fontSize: 20, fontFamily: "Inter_700Bold" },
-  TipDes: { color: '#A87BAB', fontSize: 16, fontFamily: "Inter_400Regular" },
-
+  color_detail_app: {
+    color: "#A87BAB",
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  cleardatalabel: {
+    color: "#E06B8B",
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+  },
+  cleardataDes: {
+    color: "#A87BAB",
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    marginLeft: 10,
+  },
+  labelTip: { color: "#E06B8B", fontSize: 20, fontFamily: "Inter_700Bold" },
+  TipDes: { color: "#A87BAB", fontSize: 16, fontFamily: "Inter_400Regular" },
+  avatarImage: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 2,
+    borderColor: "#f14464",
+    backgroundColor: "#FFF",
+    elevation: 3,
+  },
+  pickerContainer: {
+    borderWidth: 1.5,
+    borderColor: "#FFB3C6",
+    borderRadius: 16,
+    backgroundColor: "#FFE4EC",
+    overflow: "hidden",
+    marginTop: 4,
+    elevation: 2,
+  },
 });
 
 export default Profile;
