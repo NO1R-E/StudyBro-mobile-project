@@ -17,9 +17,12 @@ import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import * as ImagePicker from "expo-image-picker";
 import { Picker } from "@react-native-picker/picker";
+import { useNavigation } from "@react-navigation/native";
 
 
 const Profile = () => {
+  
+  const navigation = useNavigation();
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -93,7 +96,14 @@ const Profile = () => {
   const toggleEdit = () => {
     if (isEditing) {
       Alert.alert("สำเร็จ", "บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว");
+
+      navigation.navigate({
+        name: "Home",
+        params: { userName: profile.name },
+        merge: true,
+      });
     }
+
     setIsEditing(!isEditing);
   };
 
@@ -145,7 +155,10 @@ const Profile = () => {
                 value={profile.studentId}
                 keyboardType="numeric"
                 maxLength={10}
-                onChangeText={(t) => setProfile({ ...profile, studentId: t })}
+                onChangeText={(t) => {
+                  const onlyNumbers = t.replace(/[^0-9]/g, "");
+                  setProfile({ ...profile, studentId: onlyNumbers });
+                }}
                 placeholder="กรอกรหัสนิสิต"
                 placeholderTextColor="#FFB3C6"
               />
@@ -217,7 +230,10 @@ const Profile = () => {
                 style={styles.input}
                 keyboardType="numeric"
                 value={profile.year}
-                onChangeText={(t) => setProfile({ ...profile, year: t })}
+                onChangeText={(t) => {
+                  const onlyNumbers = t.replace(/[^0-9]/g, "");
+                  setProfile({ ...profile, year: onlyNumbers });
+                }}
                 placeholder="กรอกชั้นปี"
                 placeholderTextColor="#FFB3C6"
               />

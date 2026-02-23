@@ -8,8 +8,19 @@ import {
   FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRoute } from "@react-navigation/native";
 
 const Dashboard = ({ navigation }) => {
+  
+  const route = useRoute();
+  const [userName, setUserName] = useState("ผู้ใช้");
+
+  useEffect(() => {
+    if (route.params?.userName) {
+      setUserName(route.params.userName);
+    }
+  }, [route.params?.userName]);
+
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
 
@@ -78,7 +89,7 @@ const Dashboard = ({ navigation }) => {
     <ScrollView style={styles.container}>
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷 </Text>
+        <Text style={styles.welcomeText}>สวัสดี, {userName} </Text>
         <Text style={styles.dateText}>วันอังคารที่ 17 ก.พ. 2026</Text>
       </View>
 
