@@ -63,10 +63,15 @@ const StudySyncScreen = () => {
     return true;
   });
 
+  // ================= ส่วนคำนวณ Progress Bar =================
   const checklistTasks = tasks;
-  const completedCount = checklistTasks.filter(item => item.status === 'completed').length;
   const totalCount = checklistTasks.length;
-  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const completedCount = checklistTasks.filter(item => item.status === 'completed').length;
+  const missedCount = checklistTasks.filter(item => item.status === 'missed').length;
+  
+  // คำนวณเป็นเปอร์เซ็นต์
+  const completedPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const missedPercent = totalCount > 0 ? (missedCount / totalCount) * 100 : 0;
 
   const formatDate = (dateObj) => `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
   const formatTime = (dateObj) => `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
@@ -102,22 +107,17 @@ const StudySyncScreen = () => {
     }
   };
 
-  // ฟังก์ชันเปิดดูรายละเอียด Task
   const openTaskDetails = (task) => {
     setSelectedTask(task);
     setDetailsModalVisible(true);
   };
 
-  // ฟังก์ชันลบกิจกรรม (พร้อม Alert ยืนยัน)
   const handleDeleteTask = (taskId) => {
     Alert.alert(
       "ยืนยันการลบ",
       "คุณแน่ใจหรือไม่ว่าต้องการลบกิจกรรมนี้?",
       [
-        {
-          text: "ยกเลิก",
-          style: "cancel"
-        },
+        { text: "ยกเลิก", style: "cancel" },
         { 
           text: "ลบกิจกรรม", 
           onPress: () => {
@@ -125,7 +125,7 @@ const StudySyncScreen = () => {
             setDetailsModalVisible(false);
             setSelectedTask(null);
           },
-          style: "destructive" // ทำให้ตัวอักษรเป็นสีแดงบน iOS
+          style: "destructive" 
         }
       ]
     );
@@ -248,7 +248,6 @@ const StudySyncScreen = () => {
                   </Text>
                 </View>
 
-                {/* เพิ่มปุ่มลบกิจกรรมสีแดง และปุ่มปิด ไว้คู่กัน */}
                 <View style={styles.modalButtonRow}>
                   <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteTask(selectedTask.id)}>
                     <Text style={styles.deleteButtonText}>ลบกิจกรรม</Text>
@@ -321,11 +320,16 @@ const StudySyncScreen = () => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>รายการตรวจสอบแผนกิจกรรม</Text>
-            <Text style={styles.progressText}>{completedCount}/{totalCount}</Text>
+            {/* แสดงเป็น % แทนตัวเลขเดิม */}
+            <Text style={styles.progressText}>{Math.round(completedPercent)}%</Text>
           </View>
 
+          {/* หลอด Progress Bar แบ่งเป็น 2 สี */}
           <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+            {/* หลอดสีเขียว (เสร็จสิ้น) */}
+            <View style={[styles.progressBarFill, { width: `${completedPercent}%` }]} />
+            {/* หลอดสีแดง (พลาด/ล้มเหลว) */}
+            <View style={[styles.progressBarMissed, { width: `${missedPercent}%` }]} />
           </View>
 
           {checklistTasks.length === 0 ? (
@@ -342,7 +346,12 @@ const StudySyncScreen = () => {
                 </View>
 
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={styles.checklistTitle}>{plan.title}</Text>
+                  <Text style={[styles.checklistTitle, 
+                    plan.status === 'completed' && { textDecorationLine: 'line-through', color: '#999' },
+                    plan.status === 'missed' && { color: '#FF5252' }
+                  ]}>
+                    {plan.title}
+                  </Text>
                   <Text style={{ fontSize: 9, color: plan.category === 'study' ? '#1976D2' : '#F57C00', marginTop: 2 }}>
                     {plan.category === 'study' ? '📖 อ่านหนังสือ' : '⚽️ อื่นๆ'}
                   </Text>
@@ -393,9 +402,13 @@ const styles = StyleSheet.create({
   checklistTime: { color: '#E91E63', fontSize: 12 },
   checklistTitle: { textAlign: 'center', color: '#E91E63', fontSize: 14, paddingHorizontal: 10 },
 
-  progressText: { fontSize: 12, color: '#BDBDBD' },
-  progressBarBg: { height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, marginBottom: 10 },
-  progressBarFill: { height: 6, backgroundColor: '#A5D6A7', borderRadius: 3 },
+  progressText: { fontSize: 14, color: '#BDBDBD', fontWeight: 'bold' },
+  
+  // ปรับหลอด Progress Bar ให้ซ้อนกันด้วย flexDirection: 'row'
+  progressBarBg: { height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, marginBottom: 10, flexDirection: 'row', overflow: 'hidden' },
+  progressBarFill: { height: 6, backgroundColor: '#A5D6A7' },
+  progressBarMissed: { height: 6, backgroundColor: '#FF5252' }, // แถบสีแดง
+
   emptyFilteredContainer: { alignItems: 'center', paddingVertical: 20, gap: 20 },
   emptySubText: { color: '#BEBABA', fontSize: 13, fontFamily: "Inter_400Regular" ,textAlign:'center' },
 
@@ -410,7 +423,6 @@ const styles = StyleSheet.create({
   rowInputs: { flexDirection: 'row' },
   modalButtonRow: { flexDirection: 'row', marginTop: 10 },
   
-  // ปรับสไตล์ปุ่มต่างๆ ใน Modal
   cancelButton: { flex: 1, backgroundColor: '#EEEEEE', padding: 12, borderRadius: 10, marginLeft: 5, alignItems: 'center' },
   cancelButtonText: { color: '#757575', fontWeight: 'bold' },
   saveButton: { flex: 1, backgroundColor: '#E91E63', padding: 12, borderRadius: 10, marginLeft: 5, alignItems: 'center' },
@@ -424,7 +436,6 @@ const styles = StyleSheet.create({
   categoryText: { fontSize: 12, color: '#9E9E9E', fontWeight: '500' },
   categoryTextActive: { color: '#E91E63', fontWeight: 'bold' },
 
-  // Styles สำหรับ Modal รายละเอียด
   detailRow: { flexDirection: 'row', marginBottom: 10 },
   detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#555', width: 80 },
   detailValue: { fontSize: 14, color: '#333', flex: 1 },
