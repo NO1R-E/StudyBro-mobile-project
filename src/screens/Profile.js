@@ -50,11 +50,11 @@ const Profile = () => {
 
   // สร้าง State สำหรับเก็บข้อมูลโปรไฟล์
   const [profile, setProfile] = useState({
-    name: "สมหญิง รักเรียน",
-    faculty: "อักษรศาสตร์",
+    name: "",
+    faculty: "",
     major: "", 
-    year: "2",
-    studentId: "650123456",
+    year: "",
+    studentId: "",
   });
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -129,9 +129,28 @@ const Profile = () => {
                 style={styles.input}
                 value={profile.name}
                 onChangeText={(t) => setProfile({ ...profile, name: t })}
+                placeholder="กรอกชื่อ-นามสกุล"
+                placeholderTextColor="#FFB3C6"
               />
             ) : (
               <Text style={styles.value}>{profile.name}</Text>
+            )}
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>รหัสนิสิต</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={profile.studentId}
+                keyboardType="numeric"
+                maxLength={10}
+                onChangeText={(t) => setProfile({ ...profile, studentId: t })}
+                placeholder="กรอกรหัสนิสิต"
+                placeholderTextColor="#FFB3C6"
+              />
+            ) : (
+              <Text style={styles.value}>{profile.studentId || "-"}</Text>
             )}
           </View>
 
@@ -142,9 +161,7 @@ const Profile = () => {
                 <Picker
                   selectedValue={profile.faculty}
                   dropdownIconColor="#FF6F91"
-                  style={{
-                    color: "#FF6F91",
-                  }}
+                  style={styles.picker}
                   onValueChange={(itemValue) =>
                     setProfile({
                       ...profile,
@@ -175,10 +192,8 @@ const Profile = () => {
                 <Picker
                   selectedValue={profile.major}
                   enabled={!!profile.faculty}
-                  dropdownIconColor='#FF6F91'
-                  style={{
-                    color: '#FF6F91',
-                  }}
+                  dropdownIconColor="#FF6F91"
+                  style={styles.picker}
                   onValueChange={(itemValue) =>
                     setProfile({ ...profile, major: itemValue })
                   }
@@ -203,6 +218,8 @@ const Profile = () => {
                 keyboardType="numeric"
                 value={profile.year}
                 onChangeText={(t) => setProfile({ ...profile, year: t })}
+                placeholder="กรอกชั้นปี"
+                placeholderTextColor="#FFB3C6"
               />
             ) : (
               <Text style={styles.value}>{profile.year}</Text>
@@ -338,12 +355,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     width: "100%",
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    padding: 25,
+    marginBottom: 25,
     elevation: 4,
     shadowColor: "#FF748C",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
     shadowRadius: 5,
   },
   infoCardDetail: {
@@ -387,14 +402,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
   },
-  infoRow: { marginBottom: 15 },
-  label: { fontSize: 13, color: "#000000", marginBottom: 5, fontWeight: "600" },
-  value: { fontSize: 17, color: "#FF748C", fontWeight: "500" },
+  infoRow: { marginBottom: 22 },
+  label: {
+    fontSize: 14,
+    color: "#000000",
+    marginBottom: 6,
+    fontWeight: "600",
+  },
+  value: {
+    fontSize: 18,
+    color: "#FF748C",
+    fontWeight: "600",
+  },
   input: {
-    borderBottomWidth: 1,
+    borderBottomWidth: 1.5,
     borderBottomColor: "#FFDAE0",
-    fontSize: 17,
-    paddingVertical: 5,
+    fontSize: 18,
+    paddingVertical: 8,
     color: "#FF4D6D",
   },
   actionBtn: {
@@ -448,6 +472,7 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 20,
     fontFamily: "Inter_700Bold",
+    marginBottom: 20,
   },
   biglabel: { color: "#000000", fontSize: 20, fontFamily: "Inter_700Bold" },
   smalllabel: { color: "#000000", fontSize: 15, fontFamily: "Inter_700Bold" },
@@ -484,8 +509,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#FFE4EC",
     overflow: "hidden",
-    marginTop: 4,
+    marginTop: 6,
     elevation: 2,
+  },
+  picker: {
+    color: "#FF6F91",
+    fontSize: 17,
+    height: 55,
   },
 });
 
