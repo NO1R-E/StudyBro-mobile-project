@@ -457,8 +457,41 @@ const Timetable = ({ navigation }) => {
           </View>
         </ScrollView>
       )}
-      {/* 4. Modal ฟอร์ม (จัดการตารางเรียน/กลุ่ม) */}
-      <Modal visible={modalTableVisible} animationType="slide" transparent>
+      {/* MODAL for add/del group */}
+      <Modal
+        visible={modalTableVisible}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TextInput
+              placeholder="e.g., Semester 1/2026"
+              style={styles.input}
+              value={newTableName}
+              onChangeText={setNewTableName}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleAddTable}>
+                <Text style={styles.saveBtnText}>Add to Dropdown</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setModalTableVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>ยกเลิก</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL for add SUBJECT */}
+      <Modal
+        visible={modalSubjectVisible}
+        animationType="slide"
+        transparent={true}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
@@ -741,8 +774,8 @@ const Timetable = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text>Exam date</Text>
             <View style={styles.modalActions}>
+              <Text>Exam date</Text>
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setModalExamVisible(false)}
