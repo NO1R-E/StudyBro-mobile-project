@@ -25,3 +25,12 @@ Frontend เหลือหน้า HomeScreen PlannerScreen หน้าต่
 
 npx expo install @react-native-community/datetimepicker
 ใส่วันเวลาเริ่มและเวลาที่สิ้นสุด ไม่ต้องให้ผู้ใช้กรอกวันเวลาเป็นข้อความเอง กดเลือกจากปฏิทินได้เลย
+
+TodoList
+ทำให้Editวิชาไม่ได้ถ้ายังไม่เลือก Group
+ทำให้ Edit Group ได้ตอน ปุ่ม +Add/Del 
+เพิ่มปุ่ม Reset Edit วิชา
+
+จัด Format หน้า exam schedule
+เอาปุ่มออกAdd date Edit
+Input หน้าใส่เวลาสอบ จัดใหม่ 

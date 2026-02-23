@@ -18,9 +18,20 @@ import { Picker } from '@react-native-picker/picker';
 
 const Timetable = () => {
   const [semesters, setSemesters] = useState([]);
-  const [newSemesterName, setNewSemesterName] = useState("");
+  // const [newSemesterName, setNewSemesterName] = useState("");
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+  // const [examModalVisible, setExamModalVisible] = useState(false);
+  // const [selectedSubject, setSelectedSubject] = useState(null);
+
+  // const [showDatePicker, setShowDatePicker] = useState(false);
+  // const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  // const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+
+  // const [examDate, setExamDate] = useState("");
+  // const [startTime, setStartTime] = useState("");
+  // const [endTime, setEndTime] = useState("");
+  // const [examRoom, setExamRoom] = useState("");
   const [subject, setSubject] = useState({
     code: "",
     name: "",
@@ -31,7 +42,7 @@ const Timetable = () => {
     section: "",
   });
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
-  const [modalVisible, setModalVisible] = useState(false);
+  // const [modalVisible, setModalVisible] = useState(false);
   const [action, setAction] = useState("add"); // add | delete
   const [activeModal, setActiveModal] = useState(null);
   const [semesterName, setSemesterName] = useState("");
@@ -39,58 +50,6 @@ const Timetable = () => {
     Inter_400Regular,
     Inter_700Bold,
   });
-  // ข้อมูลจำลอง (Mock Data)
-  const [classes, setClasses] = useState([
-    {
-      id: "1",
-      day: "Monday",
-      code: "01418497",
-      name: "Computer Prog",
-      room: "405",
-      start: "09:00",
-      end: "12:00",
-    },
-    {
-      id: "2",
-      day: "Tuesday",
-      code: "01418342",
-      name: "Calculus I",
-      room: "202",
-      start: "13:00",
-      end: "15:00",
-    },
-  ]);
-  const [examList, setExamList] = useState(
-    classes.map((c) => ({
-      id: c.id,
-      code: c.code,
-      name: c.name,
-      section: "700", // ถ้ามีจริงค่อยดึงจาก c.section
-      examDate: "",
-      startTime: "",
-      endTime: "",
-      room: "",
-    }))
-  );
-  useEffect(() => {
-    setExamList((prev) => {
-      return classes.map((c) => {
-        const existing = prev.find((e) => e.id === c.id);
-
-        return existing
-          ? existing
-          : {
-            id: c.id,
-            code: c.code,
-            name: c.name,
-            examDate: "",
-            startTime: "",
-            endTime: "",
-            room: "",
-          };
-      });
-    });
-  }, [classes]);
   useEffect(() => {
     if (!selectedSemester && semesters.length > 0) {
       setSelectedSemester(semesters[0].semesterValue);
@@ -142,17 +101,21 @@ const Timetable = () => {
   ]);
   const handleAddSubject = () => {
     if (!selectedSemester || !selectedDay) return;
-    console.log("handleAdd Join");
+
+    if (!isValidTime(subject.start) || !isValidTime(subject.end)) {
+      Alert.alert("เวลาไม่ถูกต้อง", "กรุณาใส่เวลาแบบ HH:MM");
+      return;
+    }
+
     setSemesters(prev =>
       prev.map(sem => {
         if (sem.semesterValue !== selectedSemester) return sem;
-
 
         return {
           ...sem,
           days: sem.days.map(d => {
             if (d.dayName !== selectedDay) return d;
-            console.log("handleAdd Join2");
+
             return {
               ...d,
               subjects: [
@@ -162,14 +125,12 @@ const Timetable = () => {
                   id: Date.now().toString(),
                 },
               ],
-
             };
           }),
         };
       })
     );
 
-    // reset form
     setSubject({
       code: "",
       name: "",
@@ -195,6 +156,37 @@ const Timetable = () => {
     { dayName: "Saturday", subjects: [] },
     { dayName: "Sunday", subjects: [] },
   ];
+  const allSubjects =
+    currentSemester?.days?.flatMap(day =>
+      day.subjects.map(sub => ({
+        ...sub,
+        dayName: day.dayName
+      }))
+    ) || [];
+  const semesterSubjects =
+    currentSemester?.days.flatMap(day =>
+      day.subjects.map(sub => ({
+        ...sub,
+        dayName: day.dayName,
+      }))
+    ) || [];
+
+  //format time
+  const formatTime = (text) => {
+    // เอาเฉพาะตัวเลข
+    const cleaned = text.replace(/[^0-9]/g, "");
+
+    // ตัดไม่เกิน 4 ตัว (HHMM)
+    const limited = cleaned.slice(0, 4);
+
+    if (limited.length <= 2) return limited;
+
+    return `${limited.slice(0, 2)}:${limited.slice(2)}`;
+  };
+  const isValidTime = (time) => {
+    const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    return regex.test(time);
+  };
 
   return (
     <View style={styles.container}>
@@ -230,20 +222,17 @@ const Timetable = () => {
         </Text>
       </TouchableOpacity>
 
-      {mode === "class" && (
-        <CustomDropdown
-          placeholder="เลือก Semester"
-          data={semesters.map((sem) => ({
-            label: sem.semesterName,
-            value: sem.semesterValue,
-          }))}
-          onSelect={(item) => {
-            console.log(item);
-            setSelectedSemester(item.value); // ถ้าต้องการเก็บค่า
-          }}
-        />
-      )}
-
+      <CustomDropdown
+        placeholder="เลือก Semester"
+        data={semesters.map((sem) => ({
+          label: sem.semesterName,
+          value: sem.semesterValue,
+        }))}
+        onSelect={(item) => {
+          console.log(item);
+          setSelectedSemester(item.value); // ถ้าต้องการเก็บค่า
+        }}
+      />
       {mode === "class" && (
         <ScrollView style={styles.listArea}>
           {days.map((day) => {
@@ -334,41 +323,62 @@ const Timetable = () => {
           <View style={styles.examCard}>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.title}>Exam Schedule</Text>
+              <Text style={styles.title}>Exam Schedule : {currentSemester?.semesterName || "Choose your Group"} </Text>
               <TouchableOpacity onPress={() => setModalVisible(true)}>
                 <Feather name="edit" size={24} color="black" />
               </TouchableOpacity>
             </View>
 
-            {examList.map((item) => (
-              <View key={item.id} style={styles.examCardMini}>
-                <View style={{ flexDirection: 'row', gap: 20 }}>
-                  <View>
-                    <Text style={styles.examValue}>
-                      {item.examDate || "กรุณากรอกวันสอบ"}
-                    </Text>
+            {allSubjects.length === 0 ? (
+              <Text style={styles.emptyText}>
+                ยังไม่มีวิชาใน Semester นี้
+              </Text>
+            ) : (
+              allSubjects.map((item) => (
+                <View key={item.id} style={styles.examCardMini}>
+                  <View style={{ flexDirection: 'row', gap: 20 }}>
+                    <View>
+                      <Text style={styles.examValue}>
+                        {item.examDate || "กรุณากรอกวันสอบ"}
+                      </Text>
 
-                    <Text style={styles.examValue}>
-                      {item.startTime && item.endTime
-                        ? `${item.startTime} - ${item.endTime}`
-                        : "กรุณากรอกเวลาสอบ"}
-                    </Text>
-                  </View>
-                  <View>
-                    <Text style={styles.examDatail}>
-                      {item.code} sec {item.section}
-                    </Text>
+                      <Text style={styles.examValue}>
+                        {item.examStart && item.examEnd
+                          ? `${item.examStart} - ${item.examEnd}`
+                          : "กรุณากรอกเวลาสอบ"}
+                      </Text>
+                    </View>
 
-                    <Text style={styles.examDatail}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.examDatail}>
-                      ห้อง : <Text style={styles.examValue}>{item.room || "ติดต่อผู้สอน"}</Text>
-                    </Text>
+                    <View>
+                      <Text style={styles.examDatail}>
+                        {item.code} sec {item.section}
+                      </Text>
+
+                      <Text style={styles.examDatail}>
+                        {item.name}
+                      </Text>
+
+                      <Text style={styles.examDatail}>
+                        ห้องสอบ :{" "}
+                        <Text style={styles.examValue}>
+                          {item.examRoom || "ยังไม่ได้กำหนด"}
+                        </Text>
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedDay(item.dayName);
+                          setSubject(item);
+                          setActiveModal("examEdit");
+                        }}
+                      >
+                        <Text style={{ color: "blue" }}>Edit</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
 
           </View>
         </ScrollView>
@@ -385,7 +395,7 @@ const Timetable = () => {
           <View style={styles.modalContent}>
 
             <Text style={styles.modalTitle}>
-              {mode === "class" ? "จัดการวิชาเรียน" : "ตารางสอบ"}
+              {mode === "class" ? "จัดการตารางเรียน" : "ตารางสอบ"}
             </Text>
 
             {/* ===== กรณี วิชาเรียน ===== */}
@@ -508,35 +518,35 @@ const Timetable = () => {
             </Text>
 
             <ScrollView>
-
+              <Text>รหัสวิชา</Text>
               <TextInput
                 placeholder="รหัสวิชา"
                 style={styles.input}
                 value={subject.code}
                 onChangeText={(t) => setSubject({ ...subject, code: t })}
               />
-
+              <Text>ชื่อวิชา</Text>
               <TextInput
-                placeholder="ชื่อวิชา"
+                placeholder="Mobile Application ... "
                 style={styles.input}
                 value={subject.name}
                 onChangeText={(t) => setSubject({ ...subject, name: t })}
               />
-
+              <Text>หมู่</Text>
               <TextInput
-                placeholder="Sec"
+                placeholder="หมู่ 700 , 800"
                 style={styles.input}
                 value={subject.section}
                 onChangeText={(t) => setSubject({ ...subject, section: t })}
               />
-
+              <Text>ผู้สอน</Text>
               <TextInput
                 placeholder="ผู้สอน"
                 style={styles.input}
                 value={subject.teacher}
                 onChangeText={(t) => setSubject({ ...subject, teacher: t })}
               />
-
+              <Text>ห้องเรียน</Text>
               <TextInput
                 placeholder="ห้องเรียน"
                 style={styles.input}
@@ -544,24 +554,35 @@ const Timetable = () => {
                 onChangeText={(t) => setSubject({ ...subject, room: t })}
               />
 
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <TextInput
-                  placeholder="เริ่ม 09:00"
-                  style={[styles.input, { flex: 1 }]}
-                  value={subject.start}
-                  onChangeText={(t) =>
-                    setSubject({ ...subject, start: t })
-                  }
-                />
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
 
-                <TextInput
-                  placeholder="จบ 12:00"
-                  style={[styles.input, { flex: 1 }]}
-                  value={subject.end}
-                  onChangeText={(t) =>
-                    setSubject({ ...subject, end: t })
-                  }
-                />
+                {/* เริ่มเรียน */}
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text>เริ่มเรียน</Text>
+                  <TextInput
+                    placeholder="09:00"
+                    style={styles.input}
+                    value={subject.start}
+                    onChangeText={(t) =>
+                      setSubject({ ...subject, start: formatTime(t) })
+                    }
+                    
+                  />
+                </View>
+
+                {/* เลิกเรียน */}
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text>เลิกเรียน</Text>
+                  <TextInput
+                    placeholder="12:00"
+                    style={styles.input}
+                    value={subject.end}
+                    onChangeText={(t) =>
+                      setSubject({ ...subject, end: formatTime(t) })
+                    }
+                  />
+                </View>
+
               </View>
 
             </ScrollView>
@@ -571,6 +592,7 @@ const Timetable = () => {
                 style={styles.saveBtn}
                 onPress={handleAddSubject}
               >
+
                 <Text style={styles.saveBtnText}>บันทึก</Text>
               </TouchableOpacity>
 
@@ -581,6 +603,81 @@ const Timetable = () => {
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={activeModal === "examEdit"}
+        animationType="slide"
+        transparent
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              แก้ไขข้อมูลสอบ
+            </Text>
+
+            <TextInput
+              placeholder="วันสอบ"
+              style={styles.input}
+              value={subject.examDate}
+              onChangeText={(t) =>
+                setSubject({ ...subject, examDate: t })
+              }
+            />
+
+            <TextInput
+              placeholder="เริ่มสอบ"
+              style={styles.input}
+              value={subject.examStart}
+              onChangeText={(t) =>
+                setSubject({ ...subject, examStart: t })
+              }
+            />
+
+            <TextInput
+              placeholder="เลิกสอบ"
+              style={styles.input}
+              value={subject.examEnd}
+              onChangeText={(t) =>
+                setSubject({ ...subject, examEnd: t })
+              }
+            />
+
+            <TextInput
+              placeholder="ห้องสอบ"
+              style={styles.input}
+              value={subject.examRoom}
+              onChangeText={(t) =>
+                setSubject({ ...subject, examRoom: t })
+              }
+            />
+
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={() => {
+                setSemesters(prev =>
+                  prev.map(sem => {
+                    if (sem.semesterValue !== selectedSemester) return sem;
+
+                    return {
+                      ...sem,
+                      days: sem.days.map(day => ({
+                        ...day,
+                        subjects: day.subjects.map(sub =>
+                          sub.id === subject.id ? subject : sub
+                        )
+                      }))
+                    };
+                  })
+                );
+
+                setActiveModal(null);
+              }}
+            >
+              <Text style={styles.saveBtnText}>บันทึก</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
