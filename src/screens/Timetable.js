@@ -20,6 +20,8 @@ import {
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import Feather from "@expo/vector-icons/Feather";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Ionicons } from "@expo/vector-icons";
 
 const Timetable = ({ navigation }) => {
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
@@ -29,6 +31,14 @@ const Timetable = ({ navigation }) => {
   const [modalSubjectVisible, setModalSubjectVisible] = useState(false);
   const [modalExamVisible, setModalExamVisible] = useState(false);
   const [modalExamEditVisible, setModalExamEditVisible] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const formatTime = (dateObj) =>
+    `${dateObj.getHours().toString().padStart(2, "0")}:${dateObj.getMinutes().toString().padStart(2, "0")}`;
+  const [startTime, setStartTime] = useState(new Date());
+  const [endTime, setEndTime] = useState(
+    new Date(new Date().setHours(new Date().getHours() + 1)),
+  );
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -77,10 +87,17 @@ const Timetable = ({ navigation }) => {
       return;
     }
 
+    if (startTime >= endTime) {
+      Alert.alert("เวลาไม่ถูกต้อง", "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด");
+      return;
+    }
+
     const newEntry = {
       ...subject,
+      start: formatTime(startTime), 
+      end: formatTime(endTime), 
       id: Math.random().toString(),
-      table: selectedTable, // Use your variable name to "tag" this subject to the group
+      table: selectedTable,
     };
 
     setTable([...table, newEntry]);
@@ -803,7 +820,7 @@ const Timetable = ({ navigation }) => {
               onChangeText={(t) => setSubject({ ...subject, room: t })}
             />
 
-            <View style={styles.row}>
+            {/* <View style={styles.row}>
               <TextInput
                 placeholder="รหัสวิชา"
                 style={styles.input}
@@ -817,63 +834,55 @@ const Timetable = ({ navigation }) => {
                 value={subject.name}
                 onChangeText={(t) => setSubject({ ...subject, name: t })}
               />
-              <Text>หมู่</Text>
-              <TextInput
-                placeholder="หมู่ 700 , 800"
-                style={styles.input}
-                value={subject.section}
-                onChangeText={(t) => setSubject({ ...subject, section: t })}
-              />
-              <Text>ผู้สอน</Text>
-              <TextInput
-                placeholder="ผู้สอน"
-                style={styles.input}
-                value={subject.teacher}
-                onChangeText={(t) => setSubject({ ...subject, teacher: t })}
-              />
-              <Text>ห้องเรียน</Text>
-              <TextInput
-                placeholder="ห้องเรียน"
-                style={styles.input}
-                value={subject.room}
-                onChangeText={(t) => setSubject({ ...subject, room: t })}
-              />
+            </View> */}
 
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
-              >
-                {/* เริ่มเรียน */}
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text>เริ่มเรียน</Text>
-                  <TextInput
-                    placeholder="09:00"
-                    style={styles.input}
-                    value={subject.start}
-                    onChangeText={(t) =>
-                      setSubject({ ...subject, start: formatTime(t) })
-                    }
-                  />
-                </View>
-
-                {/* เลิกเรียน */}
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text>เลิกเรียน</Text>
-                  <TextInput
-                    placeholder="12:00"
-                    style={styles.input}
-                    value={subject.end}
-                    onChangeText={(t) =>
-                      setSubject({ ...subject, end: formatTime(t) })
-                    }
-                  />
-                </View>
+            <View style={{ flexDirection: "row" }}>
+              <View style={{ flex: 1, marginRight: 5 }}>
+                <Text style={styles.label}>เวลาเริ่ม</Text>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => setShowStartTimePicker(true)}
+                >
+                  <Text style={styles.pickerText}>{formatTime(startTime)}</Text>
+                  <Ionicons name="time-outline" size={20} color="gray" />
+                </TouchableOpacity>
+              </View>
+              <View style={{ flex: 1, marginLeft: 5 }}>
+                <Text style={styles.label}>เวลาสิ้นสุด</Text>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => setShowEndTimePicker(true)}
+                >
+                  <Text style={styles.pickerText}>{formatTime(endTime)}</Text>
+                  <Ionicons name="time-outline" size={20} color="gray" />
+                </TouchableOpacity>
               </View>
             </View>
 
-            <View style={{ flexDirection: "row", marginTop: 15 }}>
+            {showStartTimePicker && (
+              <DateTimePicker
+                value={startTime}
+                mode="time"
+                display="default"
+                onChange={(e, t) => {
+                  setShowStartTimePicker(false);
+                  if (t) setStartTime(t);
+                }}
+              />
+            )}
+            {showEndTimePicker && (
+              <DateTimePicker
+                value={endTime}
+                mode="time"
+                display="default"
+                onChange={(e, t) => {
+                  setShowEndTimePicker(false);
+                  if (t) setEndTime(t);
+                }}
+              />
+            )}
+
+            <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.saveBtn}
                 onPress={handleAddSubject}
@@ -1080,6 +1089,16 @@ const styles = StyleSheet.create({
     color: "#E75480",
     fontFamily: "Inter_400Regular",
     fontSize: 15,
+  },
+  label: { fontSize: 12, color: "gray", marginBottom: 5, marginLeft: 5 },
+  pickerButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 15,
   },
 });
 
