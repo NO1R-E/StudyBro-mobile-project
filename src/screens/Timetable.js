@@ -12,26 +12,20 @@ import {
   Alert,
 } from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
-import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
-import Feather from '@expo/vector-icons/Feather';
-import { Picker } from '@react-native-picker/picker';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import Feather from "@expo/vector-icons/Feather";
+import { Picker } from "@react-native-picker/picker";
+import { useNavigation } from "@react-navigation/native";
 
 const Timetable = () => {
+  const navigation = useNavigation();
   const [semesters, setSemesters] = useState([]);
-  // const [newSemesterName, setNewSemesterName] = useState("");
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
-  // const [examModalVisible, setExamModalVisible] = useState(false);
-  // const [selectedSubject, setSelectedSubject] = useState(null);
-
-  // const [showDatePicker, setShowDatePicker] = useState(false);
-  // const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  // const [showEndTimePicker, setShowEndTimePicker] = useState(false);
-
-  // const [examDate, setExamDate] = useState("");
-  // const [startTime, setStartTime] = useState("");
-  // const [endTime, setEndTime] = useState("");
-  // const [examRoom, setExamRoom] = useState("");
   const [subject, setSubject] = useState({
     code: "",
     name: "",
@@ -42,7 +36,6 @@ const Timetable = () => {
     section: "",
   });
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
-  // const [modalVisible, setModalVisible] = useState(false);
   const [action, setAction] = useState("add"); // add | delete
   const [activeModal, setActiveModal] = useState(null);
   const [semesterName, setSemesterName] = useState("");
@@ -55,49 +48,78 @@ const Timetable = () => {
       setSelectedSemester(semesters[0].semesterValue);
     }
   }, [semesters]);
+  useEffect(() => {
+    if (selectedSemester) {
+      navigation.navigate("Home", {
+        subjects: semesterSubjects,
+      });
+    }
+  }, [selectedSemester, semesters]);
+  
   const dayThemes = new Map([
-    ["Monday", {
-      text: "#A66100",
-      border: "#FFF085",
-      background: "#FEFCE8",
-      detail: "#D98D22"
-    }],
-    ["Tuesday", {
-      text: "#C7005C",
-      border: "#FCCEE8",
-      background: "#FDF2F8"
-      , detail: "#EA3287"
-    }],
-    ["Wednesday", {
-      text: "#078537",
-      border: "#B9F8CF",
-      background: "#F0FDF4"
-      , detail: "#2EB461"
-    }],
-    ["Thursday", {
-      text: "#c77700",
-      border: "#ffbd43",
-      background: "#fff1de"
-      , detail: "#a5742e"
-    }],
-    ["Friday", {
-      text: "#00838F",
-      border: "#26C6DA",
-      background: "#E0F7FA"
-      , detail: "#2da8b8"
-    }],
-    ["Saturday", {
-      text: "#5e058b",
-      border: "#e999ff",
-      background: "#fbe5ff"
-      , detail: "#852a99"
-    }],
-    ["Sunday", {
-      text: "#8f0000",
-      border: "#ff8080",
-      background: "#ffe2e2"
-      , detail: "#ba2c2c"
-    }],
+    [
+      "Monday",
+      {
+        text: "#A66100",
+        border: "#FFF085",
+        background: "#FEFCE8",
+        detail: "#D98D22",
+      },
+    ],
+    [
+      "Tuesday",
+      {
+        text: "#C7005C",
+        border: "#FCCEE8",
+        background: "#FDF2F8",
+        detail: "#EA3287",
+      },
+    ],
+    [
+      "Wednesday",
+      {
+        text: "#078537",
+        border: "#B9F8CF",
+        background: "#F0FDF4",
+        detail: "#2EB461",
+      },
+    ],
+    [
+      "Thursday",
+      {
+        text: "#c77700",
+        border: "#ffbd43",
+        background: "#fff1de",
+        detail: "#a5742e",
+      },
+    ],
+    [
+      "Friday",
+      {
+        text: "#00838F",
+        border: "#26C6DA",
+        background: "#E0F7FA",
+        detail: "#2da8b8",
+      },
+    ],
+    [
+      "Saturday",
+      {
+        text: "#5e058b",
+        border: "#e999ff",
+        background: "#fbe5ff",
+        detail: "#852a99",
+      },
+    ],
+    [
+      "Sunday",
+      {
+        text: "#8f0000",
+        border: "#ff8080",
+        background: "#ffe2e2",
+        detail: "#ba2c2c",
+      },
+    ],
   ]);
   const handleAddSubject = () => {
     if (!selectedSemester || !selectedDay) return;
@@ -107,13 +129,13 @@ const Timetable = () => {
       return;
     }
 
-    setSemesters(prev =>
-      prev.map(sem => {
+    setSemesters((prev) =>
+      prev.map((sem) => {
         if (sem.semesterValue !== selectedSemester) return sem;
 
         return {
           ...sem,
-          days: sem.days.map(d => {
+          days: sem.days.map((d) => {
             if (d.dayName !== selectedDay) return d;
 
             return {
@@ -128,7 +150,7 @@ const Timetable = () => {
             };
           }),
         };
-      })
+      }),
     );
 
     setSubject({
@@ -144,9 +166,17 @@ const Timetable = () => {
     setActiveModal(null);
   };
   const currentSemester = semesters.find(
-    sem => String(sem.semesterValue) === String(selectedSemester)
+    (sem) => String(sem.semesterValue) === String(selectedSemester),
   );
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const days = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
   const createDefaultDays = () => [
     { dayName: "Monday", subjects: [] },
     { dayName: "Tuesday", subjects: [] },
@@ -157,20 +187,24 @@ const Timetable = () => {
     { dayName: "Sunday", subjects: [] },
   ];
   const allSubjects =
-    currentSemester?.days?.flatMap(day =>
-      day.subjects.map(sub => ({
-        ...sub,
-        dayName: day.dayName
-      }))
-    ) || [];
-  const semesterSubjects =
-    currentSemester?.days.flatMap(day =>
-      day.subjects.map(sub => ({
+    currentSemester?.days?.flatMap((day) =>
+      day.subjects.map((sub) => ({
         ...sub,
         dayName: day.dayName,
-      }))
+      })),
     ) || [];
-
+  const semesterSubjects =
+    currentSemester?.days.flatMap((day) =>
+      day.subjects.map((sub) => ({
+        ...sub,
+        dayName: day.dayName,
+      })),
+    ) || [];
+  console.log("Today index:", new Date().getDay());
+  console.log(
+    "Today name:",
+    new Date().toLocaleDateString("en-US", { weekday: "long" }),
+  );
   //format time
   const formatTime = (text) => {
     // เอาเฉพาะตัวเลข
@@ -253,8 +287,12 @@ const Timetable = () => {
                   },
                 ]}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
                   <Text
                     style={[
                       styles.dayTitle,
@@ -277,36 +315,45 @@ const Timetable = () => {
                   </TouchableOpacity>
                 </View>
 
-                {(currentSemester?.days.find(d => d.dayName === day)?.subjects
+                {(currentSemester?.days.find((d) => d.dayName === day)?.subjects
                   .length || 0) === 0 ? (
-                  <Text style={[styles.emptyText]}>
-                    ไม่มีเรียนวันนี้
-                  </Text>
+                  <Text style={[styles.emptyText]}>ไม่มีเรียนวันนี้</Text>
                 ) : (
                   currentSemester?.days
-                    .find(d => d.dayName === day)
+                    .find((d) => d.dayName === day)
                     ?.subjects.map((item) => (
                       <View key={item.id} style={styles.classCard}>
-                        <View style={{ flexDirection: 'row', gap: 20 }}>
-                          <Text style={[
-                            styles.timeLabel,
-                            { color: theme?.text },
-                          ]}>
+                        <View style={{ flexDirection: "row", gap: 20 }}>
+                          <Text
+                            style={[styles.timeLabel, { color: theme?.text }]}
+                          >
                             {item.start} - {item.end}
                           </Text>
                           <View>
-                            <Text style={[
-                              styles.classlabel,
-                              { color: theme?.detail },
-                            ]}>{item.code} sec 700</Text>
-                            <Text style={[
-                              styles.classlabel,
-                              { color: theme?.detail },
-                            ]}>{item.name}</Text>
-                            <Text style={[
-                              styles.classlabel,
-                              { color: theme?.detail },
-                            ]}>ห้อง: {item.room}</Text>
+                            <Text
+                              style={[
+                                styles.classlabel,
+                                { color: theme?.detail },
+                              ]}
+                            >
+                              {item.code} sec 700
+                            </Text>
+                            <Text
+                              style={[
+                                styles.classlabel,
+                                { color: theme?.detail },
+                              ]}
+                            >
+                              {item.name}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.classlabel,
+                                { color: theme?.detail },
+                              ]}
+                            >
+                              ห้อง: {item.room}
+                            </Text>
                           </View>
                         </View>
                       </View>
@@ -321,22 +368,24 @@ const Timetable = () => {
       {mode === "exam" && (
         <ScrollView style={styles.containerExam}>
           <View style={styles.examCard}>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.title}>Exam Schedule : {currentSemester?.semesterName || "Choose your Group"} </Text>
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between" }}
+            >
+              <Text style={styles.title}>
+                Exam Schedule :{" "}
+                {currentSemester?.semesterName || "Choose your Group"}{" "}
+              </Text>
               <TouchableOpacity onPress={() => setModalVisible(true)}>
                 <Feather name="edit" size={24} color="black" />
               </TouchableOpacity>
             </View>
 
             {allSubjects.length === 0 ? (
-              <Text style={styles.emptyText}>
-                ยังไม่มีวิชาใน Semester นี้
-              </Text>
+              <Text style={styles.emptyText}>ยังไม่มีวิชาใน Semester นี้</Text>
             ) : (
               allSubjects.map((item) => (
                 <View key={item.id} style={styles.examCardMini}>
-                  <View style={{ flexDirection: 'row', gap: 20 }}>
+                  <View style={{ flexDirection: "row", gap: 20 }}>
                     <View>
                       <Text style={styles.examValue}>
                         {item.examDate || "กรุณากรอกวันสอบ"}
@@ -354,9 +403,7 @@ const Timetable = () => {
                         {item.code} sec {item.section}
                       </Text>
 
-                      <Text style={styles.examDatail}>
-                        {item.name}
-                      </Text>
+                      <Text style={styles.examDatail}>{item.name}</Text>
 
                       <Text style={styles.examDatail}>
                         ห้องสอบ :{" "}
@@ -379,11 +426,9 @@ const Timetable = () => {
                 </View>
               ))
             )}
-
           </View>
         </ScrollView>
       )}
-
 
       {/* 4. Modal ฟอร์ม */}
       <Modal
@@ -393,7 +438,6 @@ const Timetable = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-
             <Text style={styles.modalTitle}>
               {mode === "class" ? "จัดการตารางเรียน" : "ตารางสอบ"}
             </Text>
@@ -401,7 +445,6 @@ const Timetable = () => {
             {/* ===== กรณี วิชาเรียน ===== */}
             {mode === "class" && (
               <View>
-
                 {/* Radio */}
                 <View style={{ flexDirection: "row", marginBottom: 15 }}>
                   <TouchableOpacity
@@ -434,10 +477,7 @@ const Timetable = () => {
                       setSelectedSemester(itemValue)
                     }
                   >
-                    <Picker.Item
-                      label="-- เลือก Semester --"
-                      value={null}
-                    />
+                    <Picker.Item label="-- เลือก Semester --" value={null} />
                     {semesters.map((sem) => (
                       <Picker.Item
                         key={sem.semesterValue}
@@ -455,13 +495,13 @@ const Timetable = () => {
                     if (action === "add") {
                       if (!semesterName.trim()) return;
 
-                      setSemesters(prev => [
+                      setSemesters((prev) => [
                         ...prev,
                         {
                           semesterName,
                           semesterValue: Date.now(),
-                          days: createDefaultDays()
-                        }
+                          days: createDefaultDays(),
+                        },
                       ]);
                       setSemesterName("");
                     }
@@ -469,10 +509,10 @@ const Timetable = () => {
                     if (action === "delete") {
                       if (!selectedSemester) return;
 
-                      setSemesters(prev =>
+                      setSemesters((prev) =>
                         prev.filter(
-                          sem => sem.semesterValue !== selectedSemester
-                        )
+                          (sem) => sem.semesterValue !== selectedSemester,
+                        ),
                       );
                       setSelectedSemester(null);
                     }
@@ -501,7 +541,6 @@ const Timetable = () => {
             >
               <Text style={styles.cancelBtnText}>ยกเลิก</Text>
             </TouchableOpacity>
-
           </View>
         </View>
       </Modal>
@@ -513,9 +552,7 @@ const Timetable = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              เพิ่มวิชา - {selectedDay}
-            </Text>
+            <Text style={styles.modalTitle}>เพิ่มวิชา - {selectedDay}</Text>
 
             <ScrollView>
               <Text>รหัสวิชา</Text>
@@ -554,8 +591,12 @@ const Timetable = () => {
                 onChangeText={(t) => setSubject({ ...subject, room: t })}
               />
 
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
+              >
                 {/* เริ่มเรียน */}
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text>เริ่มเรียน</Text>
@@ -566,7 +607,6 @@ const Timetable = () => {
                     onChangeText={(t) =>
                       setSubject({ ...subject, start: formatTime(t) })
                     }
-                    
                   />
                 </View>
 
@@ -582,9 +622,7 @@ const Timetable = () => {
                     }
                   />
                 </View>
-
               </View>
-
             </ScrollView>
 
             <View style={{ flexDirection: "row", marginTop: 15 }}>
@@ -592,7 +630,6 @@ const Timetable = () => {
                 style={styles.saveBtn}
                 onPress={handleAddSubject}
               >
-
                 <Text style={styles.saveBtnText}>บันทึก</Text>
               </TouchableOpacity>
 
@@ -614,63 +651,53 @@ const Timetable = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              แก้ไขข้อมูลสอบ
-            </Text>
+            <Text style={styles.modalTitle}>แก้ไขข้อมูลสอบ</Text>
 
             <TextInput
               placeholder="วันสอบ"
               style={styles.input}
               value={subject.examDate}
-              onChangeText={(t) =>
-                setSubject({ ...subject, examDate: t })
-              }
+              onChangeText={(t) => setSubject({ ...subject, examDate: t })}
             />
 
             <TextInput
               placeholder="เริ่มสอบ"
               style={styles.input}
               value={subject.examStart}
-              onChangeText={(t) =>
-                setSubject({ ...subject, examStart: t })
-              }
+              onChangeText={(t) => setSubject({ ...subject, examStart: t })}
             />
 
             <TextInput
               placeholder="เลิกสอบ"
               style={styles.input}
               value={subject.examEnd}
-              onChangeText={(t) =>
-                setSubject({ ...subject, examEnd: t })
-              }
+              onChangeText={(t) => setSubject({ ...subject, examEnd: t })}
             />
 
             <TextInput
               placeholder="ห้องสอบ"
               style={styles.input}
               value={subject.examRoom}
-              onChangeText={(t) =>
-                setSubject({ ...subject, examRoom: t })
-              }
+              onChangeText={(t) => setSubject({ ...subject, examRoom: t })}
             />
 
             <TouchableOpacity
               style={styles.saveBtn}
               onPress={() => {
-                setSemesters(prev =>
-                  prev.map(sem => {
+                setSemesters((prev) =>
+                  prev.map((sem) => {
                     if (sem.semesterValue !== selectedSemester) return sem;
 
                     return {
                       ...sem,
-                      days: sem.days.map(day => ({
+                      days: sem.days.map((day) => ({
                         ...day,
-                        subjects: day.subjects.map(sub =>
-                          sub.id === subject.id ? subject : sub
-                        )
-                      }))
+                        subjects: day.subjects.map((sub) =>
+                          sub.id === subject.id ? subject : sub,
+                        ),
+                      })),
                     };
-                  })
+                  }),
                 );
 
                 setActiveModal(null);
@@ -681,7 +708,6 @@ const Timetable = () => {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 };
@@ -703,11 +729,17 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   activeBtn: { backgroundColor: "#FFAAC9", elevation: 8 },
-  activeText: { color: "#FFF", elevation: 8, fontFamily: "Inter_700Bold", fontSize: 18 },
+  activeText: {
+    color: "#FFF",
+    elevation: 8,
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+  },
   inactiveText: { color: "#9B7B8E", fontFamily: "Inter_700Bold", fontSize: 18 },
   listArea: { paddingHorizontal: 15 },
   daySection: {
-    marginBottom: 20, borderWidth: 1,
+    marginBottom: 20,
+    borderWidth: 1,
     padding: 10,
     borderRadius: 12,
   },
@@ -743,9 +775,15 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     alignItems: "center",
-    borderStyle: 'dashed'
+    borderStyle: "dashed",
   },
-  addBtnText: { color: "#FF9EC1", fontWeight: "bold", fontSize: 16, fontFamily: "Inter_700Bold", fontSize: 20 },
+  addBtnText: {
+    color: "#FF9EC1",
+    fontWeight: "bold",
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+  },
   // Modal Styles
   modalOverlay: {
     flex: 1,
@@ -778,7 +816,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FE7CAB",
     marginBottom: 15,
-  }, examCard: {
+  },
+  examCard: {
     backgroundColor: "#FDF2F8",
     borderRadius: 20,
     padding: 15,
@@ -804,20 +843,18 @@ const styles = StyleSheet.create({
   },
   containerExam: {
     paddingHorizontal: 15,
-
   },
 
   examValue: {
     color: "#C7005C",
     fontFamily: "Inter_700Bold",
-    fontSize: 15
+    fontSize: 15,
   },
   examDatail: {
     color: "#E75480",
     fontFamily: "Inter_400Regular",
-    fontSize: 15
+    fontSize: 15,
   },
-
 });
 
 export default Timetable;

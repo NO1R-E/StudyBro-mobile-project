@@ -22,7 +22,7 @@ examDatail: {
 },
 
 Frontend เหลือหน้า HomeScreen PlannerScreen หน้าต่างย่อยหลังจากกดปุ่มต่างๆ
-
+s
 npx expo install @react-native-community/datetimepicker
 ใส่วันเวลาเริ่มและเวลาที่สิ้นสุด ไม่ต้องให้ผู้ใช้กรอกวันเวลาเป็นข้อความเอง กดเลือกจากปฏิทินได้เลย
 
