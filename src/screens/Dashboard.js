@@ -160,7 +160,7 @@ const Dashboard = ({ navigation }) => {
     console.log(
       `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
     );
-    console.log(data)
+    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
     const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
@@ -229,31 +229,94 @@ const Dashboard = ({ navigation }) => {
         </View>
       </View>
 
+      {/* คาบเรียนถัดไป */}
       <View style={styles.card}>
-        <View style={{ flexDirection: "row" }}>
-          <Feather name="book-open" size={30} color="#FFAAC9" />
-          <Text style={styles.sectionTitle}>คาบเรียนถัดไป</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            marginBottom: 15,
+            alignItems: "center",
+          }}
+        >
+          <Feather name="book-open" size={26} color="#C7005C" />
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: "#C7005C",
+                borderLeftColor: "#C7005C",
+                borderLeftWidth: 4,
+                paddingLeft: 10,
+                marginLeft: 10,
+              },
+            ]}
+          >
+            คาบเรียนถัดไป
+          </Text>
         </View>
+
         {nextClass ? (
-          <TouchableOpacity style={styles.nextClassCard}>
+          <View
+            style={[
+              styles.nextClassCard,
+              {
+                backgroundColor: "#FDF2F8", // Pinkish background
+                borderColor: "#FCCEE8", // Pink border
+                borderWidth: 2,
+                borderRadius: 12,
+                padding: 15,
+              },
+            ]}
+          >
             <View style={styles.cardHeader}>
-              <View style={styles.tag}>
+              <View style={[styles.tag, { backgroundColor: "#EA3287" }]}>
                 <Text style={styles.tagText}>Soon</Text>
               </View>
-              <Text style={styles.timeRange}>
+              <Text style={[styles.timeRange, { color: "#C7005C" }]}>
                 {nextClass.start} - {nextClass.end}
               </Text>
             </View>
-            <Text style={styles.roomText}>{nextClass.name}</Text>
-            <View style={styles.locationRow}>
-              <Ionicons name="location" size={16} color="#FFF" />
-              <Text style={styles.roomText}> ห้องเรียน: {nextClass.room}</Text>
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.nextClassCard]}>
+
             <Text
-              style={[styles.roomText, { textAlign: "center", margin: "10" }]}
+              style={[
+                styles.classNameText,
+                {
+                  color: "#EA3287",
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  marginVertical: 5,
+                },
+              ]}
+            >
+              {nextClass.code} {nextClass.name}
+            </Text>
+
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={16} color="#EA3287" />
+              <Text style={[styles.roomText, { color: "#EA3287" }]}>
+                {" "}
+                ห้อง: {nextClass.room}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View
+            style={{
+              backgroundColor: "#FDF2F8",
+              borderColor: "#FCCEE8",
+              borderWidth: 2,
+              borderRadius: 12,
+              padding: 20,
+              alignItems: "center",
+            }}
+          >
+            <Feather name="coffee" size={24} color="#C7005C" />
+            <Text
+              style={{
+                color: "#C7005C",
+                marginTop: 5,
+                fontFamily: "Inter_400Regular",
+              }}
             >
               ไม่มีเรียนแล้ววันนี้
             </Text>

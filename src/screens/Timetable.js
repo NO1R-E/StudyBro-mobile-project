@@ -42,6 +42,7 @@ const Timetable = ({ navigation }) => {
     start: "",
     end: "",
     day: "Monday",
+    sec: "100",
   });
 
   const [tableList, setTableList] = useState([{ label: "default", value: 1 }]);
@@ -95,6 +96,21 @@ const Timetable = ({ navigation }) => {
     });
   };
 
+  const handleDeleteSubject = (id) => {
+    Alert.alert("ยืนยันการลบ", "คุณต้องการลบวิชานี้ใช่หรือไม่?", [
+      { text: "ยกเลิก", style: "cancel" },
+      {
+        text: "ลบ",
+        style: "destructive",
+        onPress: () => {
+          // Filter out the item with the matching ID
+          const updatedTable = table.filter((item) => item.id !== id);
+          setTable(updatedTable);
+        },
+      },
+    ]);
+  };
+
   const [selectedExamList, setSelectedExamList] = useState("default");
   const [examList, setExamList] = useState(
     table.map((c) => ({
@@ -108,17 +124,19 @@ const Timetable = ({ navigation }) => {
       room: "",
     })),
   );
+
   useEffect(() => {
     setExamList((prev) => {
       return table.map((c) => {
         const existing = prev.find((e) => e.id === c.id);
 
         return existing
-          ? existing
+          ? { ...existing, section: c.sec } // Ensure the section updates if the class sec changes
           : {
               id: c.id,
               code: c.code,
               name: c.name,
+              section: c.sec || "100", // Map 'sec' from table to 'section' for exams
               examDate: "",
               startTime: "",
               endTime: "",
@@ -359,7 +377,7 @@ const Timetable = ({ navigation }) => {
                               { color: theme?.detail },
                             ]}
                           >
-                            {item.code} sec 700
+                            {item.code} sec {item.sec}
                           </Text>
                           <Text
                             style={[
@@ -379,6 +397,12 @@ const Timetable = ({ navigation }) => {
                           </Text>
                         </View>
                       </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteSubject(item.id)}
+                        style={{ padding: 10 }}
+                      >
+                        <Feather name="trash-2" size={20} color="#FF7675" />
+                      </TouchableOpacity>
                     </View>
                   ))
                 )}
@@ -609,6 +633,12 @@ const Timetable = ({ navigation }) => {
               onChangeText={(t) => setSubject({ ...subject, name: t })}
             />
             <TextInput
+              placeholder="หมู่ (SEC)"
+              style={styles.input}
+              value={subject.sec}
+              onChangeText={(t) => setSubject({ ...subject, sec: t })}
+            />
+            <TextInput
               placeholder="ห้องเรียน"
               style={styles.input}
               value={subject.room}
@@ -640,7 +670,6 @@ const Timetable = ({ navigation }) => {
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => {
-                  setSubject({ ...subject, day: day });
                   setModalSubjectVisible(false);
                 }}
               >
