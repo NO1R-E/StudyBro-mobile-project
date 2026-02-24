@@ -6,6 +6,8 @@ import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/in
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // เพิ่ม Import นี้
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 const StudySyncScreen = () => {
   // --- State สำหรับฟอร์ม Modal เพิ่มกิจกรรม ---
@@ -41,19 +43,25 @@ const StudySyncScreen = () => {
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const savedTasks = await AsyncStorage.getItem('myTasks');
-        if (savedTasks) {
-          setTasks(JSON.parse(savedTasks));
+  useFocusEffect(
+    useCallback(() => {
+      const loadTasks = async () => {
+        try {
+          const savedTasks = await AsyncStorage.getItem("myTasks");
+
+          if (savedTasks) {
+            setTasks(JSON.parse(savedTasks));
+          } else {
+            setTasks([]);
+          }
+        } catch (e) {
+          console.error("Failed to load tasks", e);
         }
-      } catch (e) {
-        console.error("Failed to load tasks", e);
-      }
-    };
-    loadTasks();
-  }, []);
+      };
+
+      loadTasks();
+    }, []),
+  );
 
   // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ tasks เปลี่ยนแปลง
   useEffect(() => {

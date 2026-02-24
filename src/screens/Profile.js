@@ -119,7 +119,7 @@ const Profile = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              await AsyncStorage.removeItem('myProfile');
+              await AsyncStorage.multiRemove(['myProfile', 'myTasks', 'user_table', 'user_table_list', 'user_exams']);
               setProfile({
                 name: "",
                 faculty: "",
