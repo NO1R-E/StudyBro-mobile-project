@@ -24,6 +24,7 @@ const Dashboard = ({ navigation }) => {
 
   const [userTable, setUserTable] = useState([]);
   const [tableList, setTableList] = useState([]);
+  const [examList, setExamList] = useState([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -31,7 +32,7 @@ const Dashboard = ({ navigation }) => {
         try {
           const savedTable = await AsyncStorage.getItem("user_table");
           const savedTableList = await AsyncStorage.getItem("user_table_list");
-
+          const savedExamList = await AsyncStorage.getItem("user_exams");
           if (savedTable) {
             const parsedTable = JSON.parse(savedTable);
             setUserTable(parsedTable);
@@ -40,11 +41,15 @@ const Dashboard = ({ navigation }) => {
           }
 
           if (savedTableList) setTableList(JSON.parse(savedTableList));
+          if (savedExamList) {
+            const parsedExams = JSON.parse(savedExamList);
+            setExamList(parsedExams);
+            calculateUpcomingExams(parsedExams); // Trigger calculation immediately
+          }
         } catch (error) {
           console.error("Failed to load data on Dashboard", error);
         }
       };
-
       loadData();
     }, []),
   );
@@ -63,38 +68,6 @@ const Dashboard = ({ navigation }) => {
     Inter_700Bold,
   });
 
-  const mockExams = [
-    {
-      id: "1",
-      name: "Midterm Calculus I",
-      date: "15/03/2003-02-20",
-      timeStart: "09:00",
-      timeEnd: "22:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "2",
-      name: "Physics Quiz",
-      date: "2026-02-22",
-      timeStart: "13:00",
-      timeEnd: "14:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "3",
-      name: "English Final",
-      date: "2026-03-15",
-      timeStart: "10:00",
-      timeEnd: "12:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-  ];
   const mockActivities = [
     {
       id: "1",
@@ -157,10 +130,10 @@ const Dashboard = ({ navigation }) => {
     const startTimeLimit = getMinutesWithOffset(0); // Current time
     const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
 
-    console.log(
-      `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
-    );
-    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    // console.log(
+    //   `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
+    // );
+    // console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
     const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
@@ -183,20 +156,36 @@ const Dashboard = ({ navigation }) => {
 
     const result = todayClasses[0] || null;
     setNextClass(result);
-    console.log("Next class found:", result);
+    // console.log("Next class found:", result);
   };
 
-  const calculateUpcomingExams = () => {
-    const now = new Date();
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(now.getDate() + 7);
+  const calculateUpcomingExams = (data = examList) => {
+    if (!data || data.length === 0) {
+      setUpcomingExams([]);
+      return;
+    }
 
-    const upcoming = mockExams.filter((exam) => {
-      const examDate = new Date(exam.date);
-      return examDate >= now && examDate <= sevenDaysLater;
-    });
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Set to start of today for comparison
+    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    const upcoming = data
+      .filter((exam) => {
+        if (!exam.examDate) return false;
+        // Parse DD/MM/YYYY or YYYY-MM-DD
+        const [day, month, year] = exam.examDate.split("/");
+        const examDateObj = new Date(year, month - 1, day);
+        return examDateObj >= now;
+      })
+      .sort((a, b) => {
+        const [dayA, monthA, yearA] = a.examDate.split("/");
+        const [dayB, monthB, yearB] = b.examDate.split("/");
+        return (
+          new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB)
+        );
+      });
 
     setUpcomingExams(upcoming);
+    console.log(upcoming);
   };
 
   return (
@@ -288,7 +277,7 @@ const Dashboard = ({ navigation }) => {
                 },
               ]}
             >
-              {nextClass.code} {nextClass.name}
+              {nextClass.code} {nextClass.name} ({nextClass.table})
             </Text>
 
             <View style={styles.locationRow}>
@@ -324,35 +313,110 @@ const Dashboard = ({ navigation }) => {
         )}
       </View>
 
+      {/* สอบที่ใกล้ที่สุด */}
       <View style={styles.card}>
-        <View style={{ flexDirection: "row" }}>
-          <Feather name="alert-circle" size={30} color="#FFAAC9" />
-          <Text style={styles.sectionTitle}>สอบที่ใกล้จะถึง</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            marginBottom: 15,
+            alignItems: "center",
+          }}
+        >
+          <Feather name="alert-circle" size={26} color="#C7005C" />
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: "#C7005C",
+                borderLeftColor: "#C7005C",
+                borderLeftWidth: 4,
+                paddingLeft: 10,
+                marginLeft: 10,
+              },
+            ]}
+          >
+            สอบที่ใกล้จะถึง
+          </Text>
         </View>
+
         {upcomingExams.length > 0 ? (
           upcomingExams.map((exam) => (
-            <View key={exam.id} style={styles.examItem}>
-              <View style={styles.examInfo}>
-                <Text style={styles.examDate}>
-                  {exam.date} {exam.timeStart} น. - {exam.timeEnd} น.
+            <View
+              key={exam.id}
+              style={{
+                backgroundColor: "#FDF2F8",
+                borderColor: "#FCCEE8",
+                borderWidth: 2,
+                borderRadius: 12,
+                padding: 15,
+                marginBottom: 10, // Added gap between multiple exams
+              }}
+            >
+              <View style={styles.cardHeader}>
+                <View style={[styles.tag, { backgroundColor: "#C7005C" }]}>
+                  <Text style={styles.tagText}>Exam</Text>
+                </View>
+                <Text style={{ color: "#C7005C", fontWeight: "600" }}>
+                  {exam.examDate}
                 </Text>
-                <Text style={styles.examName}>
-                  {exam.courseID} <Text style={styles.examDate}>หมู่</Text>{" "}
-                  {exam.sec}
-                </Text>
-                <Text style={styles.examName}>{exam.name}</Text>
-                <Text style={styles.examName}>
-                  <Text style={styles.examDate}>ห้อง</Text> {exam.examRoom}
+              </View>
+
+              <Text
+                style={{
+                  color: "#EA3287",
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  marginVertical: 5,
+                }}
+              >
+                {exam.code} {exam.name} ({exam.table})
+              </Text>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <View style={styles.locationRow}>
+                  <Ionicons name="location" size={16} color="#EA3287" />
+                  <Text style={{ color: "#EA3287", fontSize: 15 }}>
+                    {" "}
+                    ห้อง: {exam.room || "ติดต่อผู้สอน"}
+                  </Text>
+                </View>
+
+                <Text
+                  style={{ color: "#EA3287", fontSize: 14, fontWeight: "600" }}
+                >
+                  {exam.startTime} - {exam.endTime}
                 </Text>
               </View>
             </View>
           ))
         ) : (
-          <Text
-            style={[styles.roomText, { textAlign: "center", margin: "10" }]}
+          <View
+            style={{
+              backgroundColor: "#FDF2F8",
+              borderColor: "#FCCEE8",
+              borderWidth: 2,
+              borderRadius: 12,
+              padding: 20,
+              alignItems: "center",
+            }}
           >
-            ไม่มีสอบในสัปดาห์นี้
-          </Text>
+            <Feather name="smile" size={24} color="#C7005C" />
+            <Text
+              style={{
+                color: "#C7005C",
+                marginTop: 5,
+                fontFamily: "Inter_400Regular",
+              }}
+            >
+              ไม่มีสอบเร็วๆ นี้
+            </Text>
+          </View>
         )}
       </View>
 
