@@ -11,9 +11,19 @@ import { Ionicons } from "@expo/vector-icons";
 import Feather from '@expo/vector-icons/Feather';
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 import Entypo from '@expo/vector-icons/Entypo';
-
+import { useRoute } from "@react-navigation/native";
 
 const Dashboard = ({ navigation }) => {
+  
+  const route = useRoute();
+  const [userName, setUserName] = useState("ผู้ใช้");
+
+  useEffect(() => {
+    if (route.params?.userName) {
+      setUserName(route.params.userName);
+    }
+  }, [route.params?.userName]);
+
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
@@ -126,7 +136,7 @@ const Dashboard = ({ navigation }) => {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷 </Text>
+        <Text style={styles.welcomeText}>สวัสดี, {userName} </Text>
         <Text style={styles.dateText}>วันอังคารที่ 17 ก.พ. 2026</Text>
       </View>
 
