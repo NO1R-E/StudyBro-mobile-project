@@ -101,6 +101,13 @@ const Timetable = () => {
     return new Date();
   };
 
+  // --- ฟังก์ชันแปลงเวลา "HH:MM" เป็น นาที (เพื่อเอามาคำนวณง่ายๆ) ---
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
+  };
+
   const handleAddSubject = () => {
     if (!selectedSemester || !selectedDay) return;
     if (!subject.start || !subject.end) {
@@ -108,6 +115,37 @@ const Timetable = () => {
       return;
     }
 
+    const newStartMin = timeToMinutes(subject.start);
+    const newEndMin = timeToMinutes(subject.end);
+
+    // 1. เช็คว่าเวลาเริ่ม ต้องมาก่อนเวลาเลิก
+    if (newStartMin >= newEndMin) {
+      Alert.alert("เวลาไม่ถูกต้อง", "เวลาเริ่มเรียนต้องมาก่อนเวลาเลิกเรียน");
+      return;
+    }
+
+    // 2. ตรวจสอบการทับซ้อนของเวลา (Overlap Detection)
+    const currentSemObj = semesters.find(sem => sem.semesterValue === selectedSemester);
+    const currentDayObj = currentSemObj?.days.find(d => d.dayName === selectedDay);
+    const existingSubjects = currentDayObj?.subjects || [];
+
+    const hasOverlap = existingSubjects.some(existingSub => {
+      const existStartMin = timeToMinutes(existingSub.start);
+      const existEndMin = timeToMinutes(existingSub.end);
+      
+      // ตรรกะการทับซ้อน: (เวลาเริ่มใหม่ < เวลาเลิกเก่า) และ (เวลาเลิกใหม่ > เวลาเริ่มเก่า)
+      return newStartMin < existEndMin && newEndMin > existStartMin;
+    });
+
+    if (hasOverlap) {
+      Alert.alert(
+        "เวลาทับซ้อน!", 
+        "เวลาเรียนที่คุณเลือก ทับซ้อนกับวิชาอื่นที่มีอยู่แล้วในวันเดียวกัน กรุณาตรวจสอบอีกครั้ง"
+      );
+      return; // หยุดการทำงาน ไม่บันทึกข้อมูล
+    }
+
+    // ถ้าผ่านเงื่อนไขทั้งหมด ค่อยบันทึก
     setSemesters(prev =>
       prev.map(sem => {
         if (sem.semesterValue !== selectedSemester) return sem;
@@ -239,7 +277,6 @@ const Timetable = () => {
                       <Text style={styles.examDatail}>{item.name}</Text>
                       <Text style={styles.examDatail}>ห้องสอบ: <Text style={styles.examValue}>{item.examRoom || "-"}</Text></Text>
                       
-                      {/* เปลี่ยนปุ่มกด Edit ให้ดูชัดเจน */}
                       <TouchableOpacity 
                         style={styles.editExamBtn}
                         onPress={() => { setSelectedDay(item.dayName); setSubject(item); setActiveModal("examEdit"); }}
@@ -416,7 +453,6 @@ const Timetable = () => {
             <Text style={styles.label}>ห้องสอบ</Text>
             <TextInput placeholder="เช่น LH-201" style={styles.input} value={subject.examRoom} onChangeText={(t) => setSubject({ ...subject, examRoom: t })} />
 
-            {/* ปุ่มสำหรับกดเพื่อ ล้างข้อมูลสอบ ออก */}
             <TouchableOpacity 
               style={{alignItems: 'flex-end', marginBottom: 10}}
               onPress={() => setSubject({ ...subject, examDate: "", examStart: "", examEnd: "", examRoom: "" })}
