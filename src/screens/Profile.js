@@ -41,7 +41,12 @@ const Profile = () => {
     });
 
     if (!result.canceled) {
-      setAvatar(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+
+      setProfile((prev) => ({
+        ...prev,
+        avatar: uri,
+      }));
     }
   };
 
@@ -59,6 +64,7 @@ const Profile = () => {
     major: "", 
     year: "",
     studentId: "",
+    avatar: "",
   });
 
   // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
@@ -95,8 +101,6 @@ const Profile = () => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  const [avatar, setAvatar] = useState(null);
-
 
   if (!fontsLoaded) {
     return null; // รอโหลดฟอนต์ก่อน
@@ -113,9 +117,21 @@ const Profile = () => {
         {
           text: "ลบข้อมูลทั้งหมด",
           style: "destructive",
-          onPress: () => {
-            console.log("All data cleared");
-            Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว");
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('myProfile');
+              setProfile({
+                name: "",
+                faculty: "",
+                major: "", 
+                year: "",
+                studentId: "",
+                avatar: "",
+              });
+              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว");
+            } catch (e) {
+              console.error("Failed to clear profile data", e);
+            }
           },
         },
       ],
@@ -145,8 +161,8 @@ const Profile = () => {
         <View style={styles.headerSection}>
           <View style={styles.avatarContainer}>
             <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
-              {avatar ? (
-                <Image source={{ uri: avatar }} style={styles.avatarImage} />
+              {profile.avatar ? (
+                <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
               ) : (
                 <Ionicons name="person-circle" size={110} color="#fed9e5" />
               )}

@@ -12,19 +12,10 @@ import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/in
 import Entypo from '@expo/vector-icons/Entypo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRoute } from "@react-navigation/native";
 
 const Dashboard = ({ navigation }) => {
   
-  const route = useRoute();
   const [userName, setUserName] = useState("ผู้ใช้");
-
-  useEffect(() => {
-    if (route.params?.userName) {
-      setUserName(route.params.userName);
-    }
-  }, [route.params?.userName]);
-
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
@@ -68,7 +59,6 @@ const Dashboard = ({ navigation }) => {
     { id: "2", name: "Physics Quiz", date: "2026-02-22", timeStart: "13:00", timeEnd: "14:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
     { id: "3", name: "English Final", date: "2026-03-15", timeStart: "10:00", timeEnd: "12:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
   ];
-
   // ดึงข้อมูล Planner ทุกครั้งที่เปิดมาหน้านี้
   useFocusEffect(
     useCallback(() => {
@@ -83,6 +73,24 @@ const Dashboard = ({ navigation }) => {
         }
       };
       fetchTasks();
+    }, [])
+  );
+
+  // ดึงข้อมูล Profile ทุกครั้งที่เปิดมาหน้านี้
+  useFocusEffect(
+    useCallback(() => {
+      const fetchProfile = async () => {
+        try {
+          const savedProfile = await AsyncStorage.getItem('myProfile');
+          if (savedProfile) {
+            const profile = JSON.parse(savedProfile);
+            setUserName(profile.name || "ผู้ใช้");
+          }
+        } catch (error) {
+          console.error("ดึงข้อมูลมา Dashboard ล้มเหลว", error);
+        }
+      };
+      fetchProfile();
     }, [])
   );
 
