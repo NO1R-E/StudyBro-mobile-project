@@ -5,12 +5,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // เพิ่ม Import นี้
 
 const StudySyncScreen = () => {
   // --- State สำหรับฟอร์ม Modal เพิ่มกิจกรรม ---
   const [modalVisible, setModalVisible] = useState(false);
   const [activityName, setActivityName] = useState('');
-  const [category, setCategory] = useState('study'); // 'study' | 'other'
+  const [category, setCategory] = useState('study'); 
   const [note, setNote] = useState('');
 
   const [activityDate, setActivityDate] = useState(new Date());
@@ -38,18 +39,46 @@ const StudySyncScreen = () => {
 
   // อัปเดตเวลาปัจจุบัน
   const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const savedTasks = await AsyncStorage.getItem('myTasks');
+        if (savedTasks) {
+          setTasks(JSON.parse(savedTasks));
+        }
+      } catch (e) {
+        console.error("Failed to load tasks", e);
+      }
+    };
+    loadTasks();
+  }, []);
+
+  // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ tasks เปลี่ยนแปลง
+  useEffect(() => {
+    const saveTasks = async () => {
+      try {
+        await AsyncStorage.setItem('myTasks', JSON.stringify(tasks));
+      } catch (e) {
+        console.error("Failed to save tasks", e);
+      }
+    };
+    saveTasks();
+  }, [tasks]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // ฟังก์ชันสลับสถานะของรายการตรวจสอบ
   const toggleTaskStatus = (id) => {
     setTasks(tasks.map(task => {
       if (task.id === id) {
         let nextStatus = 'pending';
         if (task.status === 'pending') nextStatus = 'completed';
         else if (task.status === 'completed') nextStatus = 'missed';
+        else if (task.status === 'missed') nextStatus = 'pending'; // เพิ่มวนลูปให้ครบ
         return { ...task, status: nextStatus };
       }
       return task;
@@ -58,18 +87,15 @@ const StudySyncScreen = () => {
 
   const activeTasks = tasks.filter(task => {
     if (task.status !== 'pending') return false;
-    if (currentTime > task.endTimeMs) return false;
+    // ปิดเงื่อนไข currentTime ออกชั่วคราวเพื่อให้กิจกรรมที่เพิ่งสร้างแสดงทันทีแม้จะยังไม่ถึงเวลา หรือปรับให้ยืดหยุ่นขึ้น
     if (filterCategory !== 'all' && task.category !== filterCategory) return false;
     return true;
   });
 
-  // ================= ส่วนคำนวณ Progress Bar =================
-  const checklistTasks = tasks;
-  const totalCount = checklistTasks.length;
-  const completedCount = checklistTasks.filter(item => item.status === 'completed').length;
-  const missedCount = checklistTasks.filter(item => item.status === 'missed').length;
+  const totalCount = tasks.length;
+  const completedCount = tasks.filter(item => item.status === 'completed').length;
+  const missedCount = tasks.filter(item => item.status === 'missed').length;
   
-  // คำนวณเป็นเปอร์เซ็นต์
   const completedPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const missedPercent = totalCount > 0 ? (missedCount / totalCount) * 100 : 0;
 
@@ -306,7 +332,7 @@ const StudySyncScreen = () => {
               <TouchableOpacity key={item.id} style={styles.listItemRow} onPress={() => openTaskDetails(item)}>
                 <View style={{ width: 80 }}>
                   <Text style={styles.dateText}>{item.dateString}</Text>
-                  <Text style={styles.timeText}>{item.timeString}</Text>
+                  <Text style={styles.timeText}>{item.timeString.split('-')[0]}</Text>
                 </View>
                 <View style={{ flex: 1, alignItems: 'center' }}>
                   <Text style={styles.taskName}>{item.title}</Text>
@@ -320,29 +346,25 @@ const StudySyncScreen = () => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>รายการตรวจสอบแผนกิจกรรม</Text>
-            {/* แสดงเป็น % แทนตัวเลขเดิม */}
             <Text style={styles.progressText}>{Math.round(completedPercent)}%</Text>
           </View>
 
-          {/* หลอด Progress Bar แบ่งเป็น 2 สี */}
           <View style={styles.progressBarBg}>
-            {/* หลอดสีเขียว (เสร็จสิ้น) */}
             <View style={[styles.progressBarFill, { width: `${completedPercent}%` }]} />
-            {/* หลอดสีแดง (พลาด/ล้มเหลว) */}
             <View style={[styles.progressBarMissed, { width: `${missedPercent}%` }]} />
           </View>
 
-          {checklistTasks.length === 0 ? (
+          {tasks.length === 0 ? (
             <View style={styles.emptyFilteredContainer}>
               <FontAwesome5 name="check" size={128} color="#F2F2F2" />
               <Text style={styles.emptySubText}>ยังไม่มีงานที่ต้องศึกษาหรือทำในขณะนี้</Text>
             </View>
           ) : (
-            checklistTasks.map((plan) => (
+            tasks.map((plan) => (
               <TouchableOpacity key={plan.id} style={styles.checklistRow} onPress={() => openTaskDetails(plan)}>
                 <View style={{ width: 80 }}>
                   <Text style={styles.checklistDate}>{plan.dateString}</Text>
-                  <Text style={styles.checklistTime}>{plan.timeString}</Text>
+                  <Text style={styles.checklistTime}>{plan.timeString.split('-')[0]}</Text>
                 </View>
 
                 <View style={{ flex: 1, alignItems: 'center' }}>
@@ -358,9 +380,9 @@ const StudySyncScreen = () => {
                 </View>
 
                 <TouchableOpacity onPress={() => toggleTaskStatus(plan.id)} style={{ padding: 5, width: 35, alignItems: 'flex-end' }}>
-                  {plan.status === 'completed' && <Ionicons name="checkmark" size={26} color="#4CAF50" />}
-                  {plan.status === 'missed' && <Ionicons name="close" size={26} color="#FF5252" />}
-                  {plan.status === 'pending' && <Ionicons name="ellipse-outline" size={24} color="#E0E0E0" />}
+                  {plan.status === 'completed' && <Ionicons name="checkmark-circle" size={26} color="#4CAF50" />}
+                  {plan.status === 'missed' && <Ionicons name="close-circle" size={26} color="#FF5252" />}
+                  {plan.status === 'pending' && <Ionicons name="ellipse-outline" size={26} color="#E0E0E0" />}
                 </TouchableOpacity>
               </TouchableOpacity>
             ))
@@ -404,10 +426,9 @@ const styles = StyleSheet.create({
 
   progressText: { fontSize: 14, color: '#BDBDBD', fontWeight: 'bold' },
   
-  // ปรับหลอด Progress Bar ให้ซ้อนกันด้วย flexDirection: 'row'
   progressBarBg: { height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, marginBottom: 10, flexDirection: 'row', overflow: 'hidden' },
   progressBarFill: { height: 6, backgroundColor: '#A5D6A7' },
-  progressBarMissed: { height: 6, backgroundColor: '#FF5252' }, // แถบสีแดง
+  progressBarMissed: { height: 6, backgroundColor: '#FF5252' }, 
 
   emptyFilteredContainer: { alignItems: 'center', paddingVertical: 20, gap: 20 },
   emptySubText: { color: '#BEBABA', fontSize: 13, fontFamily: "Inter_400Regular" ,textAlign:'center' },
