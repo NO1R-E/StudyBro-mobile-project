@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from '@expo/vector-icons/Feather';
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 import Entypo from '@expo/vector-icons/Entypo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRoute } from "@react-navigation/native";
 
 const Dashboard = ({ navigation }) => {
@@ -27,12 +28,21 @@ const Dashboard = ({ navigation }) => {
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
   });
+  
+  const [currentDate] = useState(new Date());
+  
+  const formatDateOnly = (date) => {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('th-TH', options); 
+  };
 
-  // ข้อมูลจำลอง
+  // ข้อมูลจำลอง (วิชาเรียน)
   const mockClasses = [
     {
       id: "1",
@@ -52,56 +62,31 @@ const Dashboard = ({ navigation }) => {
     },
   ];
 
+  // ข้อมูลจำลอง (สอบ)
   const mockExams = [
     { id: "1", name: "Midterm Calculus I", date: "15/03/2003-02-20", timeStart: "09:00", timeEnd: "22:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
     { id: "2", name: "Physics Quiz", date: "2026-02-22", timeStart: "13:00", timeEnd: "14:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
     { id: "3", name: "English Final", date: "2026-03-15", timeStart: "10:00", timeEnd: "12:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
   ];
-  const mockActivities = [
-    {
-      id: "1",
-      title: "ทำ Assignment React",
-      date: "2026-02-23",
-      time: "20:00",
-      location: "หอพัก",
-      type: "Study",
-    },
-    {
-      id: "2",
-      title: "ประชุมโปรเจค StartUp",
-      date: "2026-02-25",
-      time: "18:00",
-      location: "Zoom",
-      type: "Meeting",
-    },
-    {
-      id: "3",
-      title: "ออกกำลังกาย",
-      date: "2026-03-01",
-      time: "17:00",
-      location: "ฟิตเนส",
-      type: "Health",
-    },
-  ];
 
-  useEffect(() => {
-    calculateNextClass();
-    calculateUpcomingExams();
-    calculateUpcomingActivities();
-  }, []);
+  // ดึงข้อมูล Planner ทุกครั้งที่เปิดมาหน้านี้
+  useFocusEffect(
+    useCallback(() => {
+      const fetchTasks = async () => {
+        try {
+          const savedTasks = await AsyncStorage.getItem('myTasks');
+          if (savedTasks) {
+            setTasks(JSON.parse(savedTasks));
+          }
+        } catch (error) {
+          console.error("ดึงข้อมูลมา Dashboard ล้มเหลว", error);
+        }
+      };
+      fetchTasks();
+    }, [])
+  );
 
-  const calculateUpcomingActivities = () => {
-    const now = new Date();
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(now.getDate() + 7);
-
-    const upcoming = mockActivities.filter((activity) => {
-      const activityDate = new Date(activity.date);
-      return activityDate >= now && activityDate <= sevenDaysLater;
-    });
-
-    setUpcomingActivities(upcoming);
-  };
+  // คำนวณคาบเรียนถัดไป
   const calculateNextClass = () => {
     const now = new Date();
     const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
@@ -119,6 +104,7 @@ const Dashboard = ({ navigation }) => {
     setNextClass(todayClasses[0] || null);
   };
 
+  // คำนวณวันสอบที่ใกล้จะถึง
   const calculateUpcomingExams = () => {
     const now = new Date();
     const sevenDaysLater = new Date();
@@ -132,12 +118,33 @@ const Dashboard = ({ navigation }) => {
     setUpcomingExams(upcoming);
   };
 
+  // คำนวณกิจกรรมที่จะถึงใน 7 วัน (ดึงจาก Planner แทน Mock)
+  const calculateUpcomingActivities = () => {
+    const now = new Date();
+    const sevenDaysLater = new Date();
+    sevenDaysLater.setDate(now.getDate() + 7);
+
+    const upcoming = tasks.filter((activity) => {
+      const activityDate = new Date(activity.endTimeMs);
+      return activityDate >= now && activityDate <= sevenDaysLater;
+    });
+
+    setUpcomingActivities(upcoming);
+  };
+
+  // เรียกใช้ฟังก์ชันคำนวณใหม่ทุกครั้งที่ข้อมูล tasks อัปเดต
+  useEffect(() => {
+    calculateNextClass();
+    calculateUpcomingExams();
+    calculateUpcomingActivities();
+  }, [tasks]);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>สวัสดี, {userName} </Text>
-        <Text style={styles.dateText}>วันอังคารที่ 17 ก.พ. 2026</Text>
+        <Text style={styles.dateText}>{formatDateOnly(currentDate)}</Text>
       </View>
 
       <View style={styles.quickAddSection}>
@@ -158,7 +165,6 @@ const Dashboard = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
-
 
       <View style={styles.card}>
         <View style={{ flexDirection: 'row' }}>
@@ -186,7 +192,6 @@ const Dashboard = ({ navigation }) => {
             <Text style={[styles.roomText, { textAlign: 'center', margin: '10' }]}>
               ไม่มีเรียนแล้ววันนี้
             </Text>
-            {/* //nigga wat */}
           </View>
         )}
       </View>
@@ -224,11 +229,14 @@ const Dashboard = ({ navigation }) => {
           upcomingActivities.map((activity) => (
             <View key={activity.id} style={styles.examItem}>
               <Text style={styles.examDate}>
-                {activity.date} เวลา {activity.time}
+                {activity.dateString} เวลา {activity.timeString}
               </Text>
               <Text style={styles.examName}>{activity.title}</Text>
               <Text style={styles.examName}>
-                <Text style={styles.examDate}><Entypo name="location-pin" size={24} color="FFAAC9" /></Text> {activity.location}
+                <Text style={styles.examDate}>
+                  <Entypo name="location-pin" size={24} color="#FFAAC9" /> 
+                </Text> 
+                {' '}หมวดหมู่: {activity.category === 'study' ? 'อ่านหนังสือ' : 'อื่นๆ'}
               </Text>
             </View>
           ))
@@ -238,7 +246,6 @@ const Dashboard = ({ navigation }) => {
           </Text>
         )}
       </View>
-
     </ScrollView>
   );
 };
@@ -279,7 +286,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderRadius: 10,
-    borderColor: "#da50503b"
+    borderColor: "#da50503b",
+    marginBottom: 10
   },
   examIconBox: {
     backgroundColor: "#FFF0F3",
