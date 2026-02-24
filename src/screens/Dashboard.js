@@ -7,15 +7,46 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Feather from '@expo/vector-icons/Feather';
-import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
-import Entypo from '@expo/vector-icons/Entypo';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import Feather from "@expo/vector-icons/Feather";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import Entypo from "@expo/vector-icons/Entypo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Dashboard = ({ navigation }) => {
-  
   const [userName, setUserName] = useState("ผู้ใช้");
+
+  const [userTable, setUserTable] = useState([]);
+  const [tableList, setTableList] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        try {
+          const savedTable = await AsyncStorage.getItem("user_table");
+          const savedTableList = await AsyncStorage.getItem("user_table_list");
+
+          if (savedTable) {
+            const parsedTable = JSON.parse(savedTable);
+            setUserTable(parsedTable);
+            // FIX: Pass the parsed data directly to the function
+            calculateNextClass(parsedTable);
+          }
+
+          if (savedTableList) setTableList(JSON.parse(savedTableList));
+        } catch (error) {
+          console.error("Failed to load data on Dashboard", error);
+        }
+      };
+
+      loadData();
+    }, []),
+  );
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
@@ -42,11 +73,13 @@ const Dashboard = ({ navigation }) => {
   const mockClasses = [
     {
       id: "1",
-      day: "Tuesday",
-      name: "Computer Programming",
-      start: "13:00",
-      end: "16:00",
-      room: "405",
+      name: "Midterm Calculus I",
+      date: "15/03/2003-02-20",
+      timeStart: "09:00",
+      timeEnd: "22:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
     },
     {
       id: "2",
@@ -58,7 +91,6 @@ const Dashboard = ({ navigation }) => {
     },
   ];
 
-  // ข้อมูลจำลอง (สอบ)
   const mockExams = [
     {
       id: "1",
@@ -91,7 +123,45 @@ const Dashboard = ({ navigation }) => {
       examRoom: "LH4-101",
     },
   ];
-  // ดึงข้อมูล Planner ทุกครั้งที่เปิดมาหน้านี้
+  const mockActivities = [
+    {
+      id: "1",
+      name: "Midterm Calculus I",
+      date: "15/03/2003-02-20",
+      timeStart: "09:00",
+      timeEnd: "22:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
+    {
+      id: "2",
+      name: "Physics Quiz",
+      date: "2026-02-22",
+      timeStart: "13:00",
+      timeEnd: "14:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
+    {
+      id: "3",
+      name: "English Final",
+      date: "2026-03-15",
+      timeStart: "10:00",
+      timeEnd: "12:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
+  ];
+
+  useEffect(() => {
+    calculateNextClass();
+    calculateUpcomingExams();
+    calculateUpcomingActivities();
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       const fetchTasks = async () => {
@@ -114,7 +184,7 @@ const Dashboard = ({ navigation }) => {
     useCallback(() => {
       const fetchProfile = async () => {
         try {
-          const savedProfile = await AsyncStorage.getItem('myProfile');
+          const savedProfile = await AsyncStorage.getItem("myProfile");
           if (savedProfile) {
             const profile = JSON.parse(savedProfile);
             setUserName(profile.name || "ผู้ใช้");
@@ -124,7 +194,7 @@ const Dashboard = ({ navigation }) => {
         }
       };
       fetchProfile();
-    }, [])
+    }, []),
   );
 
   // ดึงข้อมูล Profile ทุกครั้งที่เปิดมาหน้านี้
@@ -132,7 +202,7 @@ const Dashboard = ({ navigation }) => {
     useCallback(() => {
       const fetchProfile = async () => {
         try {
-          const savedProfile = await AsyncStorage.getItem('myProfile');
+          const savedProfile = await AsyncStorage.getItem("myProfile");
           if (savedProfile) {
             const profile = JSON.parse(savedProfile);
             setUserName(profile.name || "ผู้ใช้");
@@ -142,25 +212,50 @@ const Dashboard = ({ navigation }) => {
         }
       };
       fetchProfile();
-    }, [])
+    }, []),
   );
 
-  // คำนวณคาบเรียนถัดไป
+  const getMinutesWithOffset = (offsetHours = 0) => {
+    const now = new Date();
+    // We add the offset and set minutes to 0 if you want to check "Top of the hour"
+    // or leave as is for a rolling window.
+    return (now.getHours() + offsetHours) * 60 + now.getMinutes();
+  };
   const calculateNextClass = () => {
     const now = new Date();
     const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
-    const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    const todayClasses = mockClasses
+    // Use the helper to define your window
+    const startTimeLimit = getMinutesWithOffset(0); // Current time
+    const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
+
+    console.log(
+      `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
+    );
+    console.log(data);
+    const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
-        const [h, m] = c.start.split(":").map(Number);
+        let h,
+          m = 0;
+        if (c.start && String(c.start).includes(":")) {
+          [h, m] = c.start.split(":").map(Number);
+        } else {
+          h = Number(c.start);
+        }
         return { ...c, startMinutes: h * 60 + m };
       })
-      .filter((c) => c.startMinutes > currentTime)
+      .filter((c) => {
+        // Flexible window: starts after now, but before the "hour limit"
+        return (
+          c.startMinutes >= startTimeLimit && c.startMinutes <= endTimeLimit
+        );
+      })
       .sort((a, b) => a.startMinutes - b.startMinutes);
 
-    setNextClass(todayClasses[0] || null);
+    const result = todayClasses[0] || null;
+    setNextClass(result);
+    console.log("Next class found:", result);
   };
 
   // คำนวณวันสอบที่ใกล้จะถึง
@@ -176,6 +271,7 @@ const Dashboard = ({ navigation }) => {
 
     setUpcomingExams(upcoming);
   };
+
 
   // คำนวณกิจกรรมที่จะถึงใน 7 วัน (ดึงจาก Planner แทน Mock)
   const calculateUpcomingActivities = () => {
@@ -341,6 +437,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#4A4A4A",
     marginHorizontal: 15,
+    marginHorizontal: 15,
   },
 
   cardHeader: {
@@ -359,6 +456,7 @@ const styles = StyleSheet.create({
   timeRange: { color: "#FFF", fontWeight: "600" },
   locationRow: { flexDirection: "row", alignItems: "center" },
   roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
+  roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
 
   // Exam List Pink Style
   examSection: { marginBottom: 25 },
@@ -367,7 +465,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     borderColor: "#da50503b",
-    marginBottom: 10,
   },
   examIconBox: {
     backgroundColor: "#FFF0F3",
