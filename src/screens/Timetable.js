@@ -290,10 +290,11 @@ const Timetable = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.addBtn} onPress={handleMainAddPress}>
-        <Text style={styles.addBtnText}>
-          + {mode === "class" ? "Add/Del Group" : "Add Date"}
-        </Text>
+      <TouchableOpacity
+        style={styles.addBtn}
+        onPress={() => setModalTableVisible(true)}
+      >
+        <Text style={styles.addBtnText}>+Edit Group</Text>
       </TouchableOpacity>
 
       <View>
@@ -418,9 +419,6 @@ const Timetable = ({ navigation }) => {
               style={{ flexDirection: "row", justifyContent: "space-between" }}
             >
               <Text style={styles.title}>Exam Schedule</Text>
-              <TouchableOpacity onPress={() => setModalExamEditVisible(true)}>
-                <Feather name="edit" size={24} color="black" />
-              </TouchableOpacity>
             </View>
 
             {examList.map((item) => (
@@ -451,6 +449,11 @@ const Timetable = ({ navigation }) => {
                       </Text>
                     </Text>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => setModalExamEditVisible(true)}
+                  >
+                    <Feather name="edit" size={24} color="black" />
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -616,9 +619,11 @@ const Timetable = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {mode === "class" ? "จัดการกลุ่มตารางเรียน" : "จัดการตารางสอบ"}
-            </Text>
+            <View style={{ flexDirection: "row" }}>
+              <Text style={styles.modalTitle}>
+                จัดการข้อมูล{mode === "class" ? "วิชาเรียน" : "ตารางสอบ"}
+              </Text>
+            </View>
 
             {/* ส่วนเลือก Action: Add หรือ Delete */}
             <View
