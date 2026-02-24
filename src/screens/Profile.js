@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import * as ImagePicker from "expo-image-picker";
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const Profile = () => {
@@ -59,6 +60,34 @@ const Profile = () => {
     year: "",
     studentId: "",
   });
+
+  // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
+    useEffect(() => {
+      const loadProfile = async () => {
+        try {
+          const savedProfile = await AsyncStorage.getItem('myProfile');
+          if (savedProfile) {
+            setProfile(JSON.parse(savedProfile));
+          }
+        } catch (e) {
+          console.error("Failed to load profile", e);
+        }
+      };
+      loadProfile();
+    }, []);
+  
+    // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
+    useEffect(() => {
+      const saveProfile = async () => {
+        try {
+          await AsyncStorage.setItem('myProfile', JSON.stringify(profile));
+        } catch (e) {
+          console.error("Failed to save profile", e);
+        }
+      };
+      saveProfile();
+    }, [profile]);
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
