@@ -669,9 +669,7 @@ const Timetable = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => {
-                  setModalSubjectVisible(false);
-                }}
+                onPress={() => setModalSubjectVisible(false)}
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
