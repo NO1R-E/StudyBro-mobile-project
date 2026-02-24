@@ -23,7 +23,7 @@ import Feather from "@expo/vector-icons/Feather";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 
-const Timetable = () => {
+const Timetable = ({ navigation }) => {
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
 
   const [action, setAction] = useState();
@@ -52,6 +52,7 @@ const Timetable = () => {
     start: "",
     end: "",
     day: "Monday",
+    sec: "100",
   });
 
   const [tableList, setTableList] = useState([{ label: "default", value: 1 }]);
@@ -101,6 +102,30 @@ const Timetable = () => {
 
     setTable([...table, newEntry]);
     setModalSubjectVisible(false);
+    // reset form...
+    setSubject({
+      code: "",
+      name: "",
+      room: "",
+      start: "",
+      end: "",
+      day: "Monday", // Default fallback
+    });
+  };
+
+  const handleDeleteSubject = (id) => {
+    Alert.alert("ยืนยันการลบ", "คุณต้องการลบวิชานี้ใช่หรือไม่?", [
+      { text: "ยกเลิก", style: "cancel" },
+      {
+        text: "ลบ",
+        style: "destructive",
+        onPress: () => {
+          // Filter out the item with the matching ID
+          const updatedTable = table.filter((item) => item.id !== id);
+          setTable(updatedTable);
+        },
+      },
+    ]);
   };
 
   const [selectedExamList, setSelectedExamList] = useState("default");
@@ -116,17 +141,19 @@ const Timetable = () => {
       room: "",
     })),
   );
+
   useEffect(() => {
     setExamList((prev) => {
       return table.map((c) => {
         const existing = prev.find((e) => e.id === c.id);
 
         return existing
-          ? existing
+          ? { ...existing, section: c.sec } // Ensure the section updates if the class sec changes
           : {
               id: c.id,
               code: c.code,
               name: c.name,
+              section: c.sec || "100", // Map 'sec' from table to 'section' for exams
               examDate: "",
               startTime: "",
               endTime: "",
@@ -338,7 +365,10 @@ const Timetable = () => {
                     {day}
                   </Text>
                   <TouchableOpacity
-                    onPress={() => setModalSubjectVisible(true)}
+                    onPress={() => {
+                      setSubject({ ...subject, day: day });
+                      setModalSubjectVisible(true);
+                    }}
                   >
                     <Feather name="edit" size={24} color="black" />
                   </TouchableOpacity>
@@ -364,7 +394,7 @@ const Timetable = () => {
                               { color: theme?.detail },
                             ]}
                           >
-                            {item.code} sec 700
+                            {item.code} sec {item.sec}
                           </Text>
                           <Text
                             style={[
@@ -384,6 +414,12 @@ const Timetable = () => {
                           </Text>
                         </View>
                       </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteSubject(item.id)}
+                        style={{ padding: 10 }}
+                      >
+                        <Feather name="trash-2" size={20} color="#FF7675" />
+                      </TouchableOpacity>
                     </View>
                   ))
                 )}
@@ -612,6 +648,12 @@ const Timetable = () => {
               style={styles.input}
               value={subject.name}
               onChangeText={(t) => setSubject({ ...subject, name: t })}
+            />
+            <TextInput
+              placeholder="หมู่ (SEC)"
+              style={styles.input}
+              value={subject.sec}
+              onChangeText={(t) => setSubject({ ...subject, sec: t })}
             />
             <TextInput
               placeholder="ห้องเรียน"
