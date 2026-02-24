@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,15 +8,46 @@ import {
   FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Feather from '@expo/vector-icons/Feather';
-import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
-import Entypo from '@expo/vector-icons/Entypo';
-import { useRoute } from "@react-navigation/native";
+import Feather from "@expo/vector-icons/Feather";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import Entypo from "@expo/vector-icons/Entypo";
+import { useRoute, useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Dashboard = ({ navigation }) => {
-  
   const route = useRoute();
   const [userName, setUserName] = useState("ผู้ใช้");
+
+  const [userTable, setUserTable] = useState([]);
+  const [tableList, setTableList] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        try {
+          const savedTable = await AsyncStorage.getItem("user_table");
+          const savedTableList = await AsyncStorage.getItem("user_table_list");
+
+          if (savedTable) {
+            const parsedTable = JSON.parse(savedTable);
+            setUserTable(parsedTable);
+            // FIX: Pass the parsed data directly to the function
+            calculateNextClass(parsedTable);
+          }
+
+          if (savedTableList) setTableList(JSON.parse(savedTableList));
+        } catch (error) {
+          console.error("Failed to load data on Dashboard", error);
+        }
+      };
+
+      loadData();
+    }, []),
+  );
 
   useEffect(() => {
     if (route.params?.userName) {
@@ -32,30 +63,37 @@ const Dashboard = ({ navigation }) => {
     Inter_700Bold,
   });
 
-  // ข้อมูลจำลอง
-  const mockClasses = [
+  const mockExams = [
     {
       id: "1",
-      day: "Tuesday",
-      name: "Computer Programming",
-      start: "13:00",
-      end: "16:00",
-      room: "405",
+      name: "Midterm Calculus I",
+      date: "15/03/2003-02-20",
+      timeStart: "09:00",
+      timeEnd: "22:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
     },
     {
       id: "2",
-      day: "Sunday",
-      name: "Digital Logic",
-      start: "16:30",
-      end: "18:30",
-      room: "302",
+      name: "Physics Quiz",
+      date: "2026-02-22",
+      timeStart: "13:00",
+      timeEnd: "14:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
     },
-  ];
-
-  const mockExams = [
-    { id: "1", name: "Midterm Calculus I", date: "15/03/2003-02-20", timeStart: "09:00", timeEnd: "22:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
-    { id: "2", name: "Physics Quiz", date: "2026-02-22", timeStart: "13:00", timeEnd: "14:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
-    { id: "3", name: "English Final", date: "2026-03-15", timeStart: "10:00", timeEnd: "12:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
+    {
+      id: "3",
+      name: "English Final",
+      date: "2026-03-15",
+      timeStart: "10:00",
+      timeEnd: "12:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
   ];
   const mockActivities = [
     {
@@ -90,6 +128,13 @@ const Dashboard = ({ navigation }) => {
     calculateUpcomingActivities();
   }, []);
 
+  const getMinutesWithOffset = (offsetHours = 0) => {
+    const now = new Date();
+    // We add the offset and set minutes to 0 if you want to check "Top of the hour"
+    // or leave as is for a rolling window.
+    return (now.getHours() + offsetHours) * 60 + now.getMinutes();
+  };
+
   const calculateUpcomingActivities = () => {
     const now = new Date();
     const sevenDaysLater = new Date();
@@ -102,21 +147,43 @@ const Dashboard = ({ navigation }) => {
 
     setUpcomingActivities(upcoming);
   };
-  const calculateNextClass = () => {
+  const calculateNextClass = (data = userTable) => {
+    if (!data || data.length === 0) return;
+
     const now = new Date();
     const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
-    const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    const todayClasses = mockClasses
+    // Use the helper to define your window
+    const startTimeLimit = getMinutesWithOffset(0); // Current time
+    const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
+
+    console.log(
+      `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
+    );
+    console.log(data)
+    const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
-        const [h, m] = c.start.split(":").map(Number);
+        let h,
+          m = 0;
+        if (c.start && String(c.start).includes(":")) {
+          [h, m] = c.start.split(":").map(Number);
+        } else {
+          h = Number(c.start);
+        }
         return { ...c, startMinutes: h * 60 + m };
       })
-      .filter((c) => c.startMinutes > currentTime)
+      .filter((c) => {
+        // Flexible window: starts after now, but before the "hour limit"
+        return (
+          c.startMinutes >= startTimeLimit && c.startMinutes <= endTimeLimit
+        );
+      })
       .sort((a, b) => a.startMinutes - b.startMinutes);
 
-    setNextClass(todayClasses[0] || null);
+    const result = todayClasses[0] || null;
+    setNextClass(result);
+    console.log("Next class found:", result);
   };
 
   const calculateUpcomingExams = () => {
@@ -133,7 +200,10 @@ const Dashboard = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 100 }}
+    >
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>สวัสดี, {userName} </Text>
@@ -159,9 +229,8 @@ const Dashboard = ({ navigation }) => {
         </View>
       </View>
 
-
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           <Feather name="book-open" size={30} color="#FFAAC9" />
           <Text style={styles.sectionTitle}>คาบเรียนถัดไป</Text>
         </View>
@@ -183,16 +252,17 @@ const Dashboard = ({ navigation }) => {
           </TouchableOpacity>
         ) : (
           <View style={[styles.nextClassCard]}>
-            <Text style={[styles.roomText, { textAlign: 'center', margin: '10' }]}>
+            <Text
+              style={[styles.roomText, { textAlign: "center", margin: "10" }]}
+            >
               ไม่มีเรียนแล้ววันนี้
             </Text>
-            {/* //nigga wat */}
           </View>
         )}
       </View>
 
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           <Feather name="alert-circle" size={30} color="#FFAAC9" />
           <Text style={styles.sectionTitle}>สอบที่ใกล้จะถึง</Text>
         </View>
@@ -201,21 +271,30 @@ const Dashboard = ({ navigation }) => {
             <View key={exam.id} style={styles.examItem}>
               <View style={styles.examInfo}>
                 <Text style={styles.examDate}>
-                  {exam.date}  {exam.timeStart} น. - {exam.timeEnd} น.
+                  {exam.date} {exam.timeStart} น. - {exam.timeEnd} น.
                 </Text>
-                <Text style={styles.examName}>{exam.courseID} <Text style={styles.examDate}>หมู่</Text>  {exam.sec}</Text>
+                <Text style={styles.examName}>
+                  {exam.courseID} <Text style={styles.examDate}>หมู่</Text>{" "}
+                  {exam.sec}
+                </Text>
                 <Text style={styles.examName}>{exam.name}</Text>
-                <Text style={styles.examName}><Text style={styles.examDate}>ห้อง</Text> {exam.examRoom}</Text>
+                <Text style={styles.examName}>
+                  <Text style={styles.examDate}>ห้อง</Text> {exam.examRoom}
+                </Text>
               </View>
             </View>
           ))
         ) : (
-          <Text style={[styles.roomText, { textAlign: 'center', margin: '10' }]}>ไม่มีสอบในสัปดาห์นี้</Text>
+          <Text
+            style={[styles.roomText, { textAlign: "center", margin: "10" }]}
+          >
+            ไม่มีสอบในสัปดาห์นี้
+          </Text>
         )}
       </View>
 
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           <Feather name="clipboard" size={30} color="#FFAAC9" />
           <Text style={styles.sectionTitle}>วางแผนกิจกรรม</Text>
         </View>
@@ -228,17 +307,19 @@ const Dashboard = ({ navigation }) => {
               </Text>
               <Text style={styles.examName}>{activity.title}</Text>
               <Text style={styles.examName}>
-                <Text style={styles.examDate}><Entypo name="location-pin" size={24} color="FFAAC9" /></Text> {activity.location}
+                <Text style={styles.examDate}>
+                  <Entypo name="location-pin" size={24} color="FFAAC9" />
+                </Text>{" "}
+                {activity.location}
               </Text>
             </View>
           ))
         ) : (
-          <Text style={[styles.roomText, { textAlign: 'center', margin: 10 }]}>
+          <Text style={[styles.roomText, { textAlign: "center", margin: 10 }]}>
             ไม่มีกิจกรรมในสัปดาห์นี้
           </Text>
         )}
       </View>
-
     </ScrollView>
   );
 };
@@ -253,7 +334,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#4A4A4A",
-    marginHorizontal: 15
+    marginHorizontal: 15,
   },
 
   cardHeader: {
@@ -271,7 +352,7 @@ const styles = StyleSheet.create({
   tagText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   timeRange: { color: "#FFF", fontWeight: "600" },
   locationRow: { flexDirection: "row", alignItems: "center" },
-  roomText: { color: "#EA3287", fontSize: 15, fontFamily: 'Inter_400Regular' },
+  roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
 
   // Exam List Pink Style
   examSection: { marginBottom: 25 },
@@ -279,7 +360,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderRadius: 10,
-    borderColor: "#da50503b"
+    borderColor: "#da50503b",
   },
   examIconBox: {
     backgroundColor: "#FFF0F3",
@@ -288,8 +369,13 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   examInfo: { flex: 1 },
-  examName: { fontSize: 16, color: "#EA3287", fontFamily: 'Inter_400Regular' },
-  examDate: { fontSize: 13, color: "#C7005C", marginTop: 2, fontFamily: 'Inter_700Bold' },
+  examName: { fontSize: 16, color: "#EA3287", fontFamily: "Inter_400Regular" },
+  examDate: {
+    fontSize: 13,
+    color: "#C7005C",
+    marginTop: 2,
+    fontFamily: "Inter_700Bold",
+  },
   emptyText: { color: "#FFB7C5", fontStyle: "italic", textAlign: "center" },
 
   // Quick Add Pink Style

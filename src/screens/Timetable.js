@@ -21,9 +21,10 @@ import {
 } from "@expo-google-fonts/inter";
 import Feather from "@expo/vector-icons/Feather";
 
-const Timetable = () => {
+const Timetable = ({ navigation }) => {
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
 
+  const [action, setAction] = useState();
   const [modalTableVisible, setModalTableVisible] = useState(false);
   const [modalSubjectVisible, setModalSubjectVisible] = useState(false);
   const [modalExamVisible, setModalExamVisible] = useState(false);
@@ -84,6 +85,14 @@ const Timetable = () => {
     setTable([...table, newEntry]);
     setModalSubjectVisible(false);
     // reset form...
+    setSubject({
+      code: "",
+      name: "",
+      room: "",
+      start: "",
+      end: "",
+      day: "Monday", // Default fallback
+    });
   };
 
   const [selectedExamList, setSelectedExamList] = useState("default");
@@ -321,7 +330,10 @@ const Timetable = () => {
                     {day}
                   </Text>
                   <TouchableOpacity
-                    onPress={() => setModalSubjectVisible(true)}
+                    onPress={() => {
+                      setSubject({ ...subject, day: day });
+                      setModalSubjectVisible(true);
+                    }}
                   >
                     <Feather name="edit" size={24} color="black" />
                   </TouchableOpacity>
@@ -627,7 +639,10 @@ const Timetable = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => setModalSubjectVisible(false)}
+                onPress={() => {
+                  setSubject({ ...subject, day: day });
+                  setModalSubjectVisible(false);
+                }}
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
