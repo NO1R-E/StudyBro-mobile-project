@@ -7,15 +7,18 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Feather from '@expo/vector-icons/Feather';
-import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
-import Entypo from '@expo/vector-icons/Entypo';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import Feather from "@expo/vector-icons/Feather";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import Entypo from "@expo/vector-icons/Entypo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRoute } from "@react-navigation/native";
 
 const Dashboard = ({ navigation }) => {
-  
   const route = useRoute();
   const [userName, setUserName] = useState("ผู้ใช้");
 
@@ -29,17 +32,22 @@ const Dashboard = ({ navigation }) => {
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
   const [tasks, setTasks] = useState([]);
-  
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
   });
-  
+
   const [currentDate] = useState(new Date());
-  
+
   const formatDateOnly = (date) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('th-TH', options); 
+    const options = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    };
+    return date.toLocaleDateString("th-TH", options);
   };
 
   // ข้อมูลจำลอง (วิชาเรียน)
@@ -64,9 +72,36 @@ const Dashboard = ({ navigation }) => {
 
   // ข้อมูลจำลอง (สอบ)
   const mockExams = [
-    { id: "1", name: "Midterm Calculus I", date: "15/03/2003-02-20", timeStart: "09:00", timeEnd: "22:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
-    { id: "2", name: "Physics Quiz", date: "2026-02-22", timeStart: "13:00", timeEnd: "14:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
-    { id: "3", name: "English Final", date: "2026-03-15", timeStart: "10:00", timeEnd: "12:00", courseID: "01418497", sec: '700', examRoom: 'LH4-101' },
+    {
+      id: "1",
+      name: "Midterm Calculus I",
+      date: "15/03/2003-02-20",
+      timeStart: "09:00",
+      timeEnd: "22:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
+    {
+      id: "2",
+      name: "Physics Quiz",
+      date: "2026-02-22",
+      timeStart: "13:00",
+      timeEnd: "14:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
+    {
+      id: "3",
+      name: "English Final",
+      date: "2026-03-15",
+      timeStart: "10:00",
+      timeEnd: "12:00",
+      courseID: "01418497",
+      sec: "700",
+      examRoom: "LH4-101",
+    },
   ];
 
   // ดึงข้อมูล Planner ทุกครั้งที่เปิดมาหน้านี้
@@ -74,16 +109,17 @@ const Dashboard = ({ navigation }) => {
     useCallback(() => {
       const fetchTasks = async () => {
         try {
-          const savedTasks = await AsyncStorage.getItem('myTasks');
+          const savedTasks = await AsyncStorage.getItem("myTasks");
           if (savedTasks) {
             setTasks(JSON.parse(savedTasks));
+            console.log(JSON.parse(savedTasks));
           }
         } catch (error) {
           console.error("ดึงข้อมูลมา Dashboard ล้มเหลว", error);
         }
       };
       fetchTasks();
-    }, [])
+    }, []),
   );
 
   // คำนวณคาบเรียนถัดไป
@@ -126,7 +162,13 @@ const Dashboard = ({ navigation }) => {
 
     const upcoming = tasks.filter((activity) => {
       const activityDate = new Date(activity.endTimeMs);
-      return activityDate >= now && activityDate <= sevenDaysLater;
+
+      const isInNext7Days =
+        activityDate >= now && activityDate <= sevenDaysLater;
+
+      const isPending = activity.status === "pending";
+
+      return isInNext7Days && isPending;
     });
 
     setUpcomingActivities(upcoming);
@@ -140,7 +182,10 @@ const Dashboard = ({ navigation }) => {
   }, [tasks]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 100 }}
+    >
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>สวัสดี, {userName} </Text>
@@ -167,7 +212,7 @@ const Dashboard = ({ navigation }) => {
       </View>
 
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           <Feather name="book-open" size={30} color="#FFAAC9" />
           <Text style={styles.sectionTitle}>คาบเรียนถัดไป</Text>
         </View>
@@ -189,7 +234,9 @@ const Dashboard = ({ navigation }) => {
           </TouchableOpacity>
         ) : (
           <View style={[styles.nextClassCard]}>
-            <Text style={[styles.roomText, { textAlign: 'center', margin: '10' }]}>
+            <Text
+              style={[styles.roomText, { textAlign: "center", margin: "10" }]}
+            >
               ไม่มีเรียนแล้ววันนี้
             </Text>
           </View>
@@ -197,7 +244,7 @@ const Dashboard = ({ navigation }) => {
       </View>
 
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           <Feather name="alert-circle" size={30} color="#FFAAC9" />
           <Text style={styles.sectionTitle}>สอบที่ใกล้จะถึง</Text>
         </View>
@@ -206,21 +253,30 @@ const Dashboard = ({ navigation }) => {
             <View key={exam.id} style={styles.examItem}>
               <View style={styles.examInfo}>
                 <Text style={styles.examDate}>
-                  {exam.date}  {exam.timeStart} น. - {exam.timeEnd} น.
+                  {exam.date} {exam.timeStart} น. - {exam.timeEnd} น.
                 </Text>
-                <Text style={styles.examName}>{exam.courseID} <Text style={styles.examDate}>หมู่</Text>  {exam.sec}</Text>
+                <Text style={styles.examName}>
+                  {exam.courseID} <Text style={styles.examDate}>หมู่</Text>{" "}
+                  {exam.sec}
+                </Text>
                 <Text style={styles.examName}>{exam.name}</Text>
-                <Text style={styles.examName}><Text style={styles.examDate}>ห้อง</Text> {exam.examRoom}</Text>
+                <Text style={styles.examName}>
+                  <Text style={styles.examDate}>ห้อง</Text> {exam.examRoom}
+                </Text>
               </View>
             </View>
           ))
         ) : (
-          <Text style={[styles.roomText, { textAlign: 'center', margin: '10' }]}>ไม่มีสอบในสัปดาห์นี้</Text>
+          <Text
+            style={[styles.roomText, { textAlign: "center", margin: "10" }]}
+          >
+            ไม่มีสอบในสัปดาห์นี้
+          </Text>
         )}
       </View>
 
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           <Feather name="clipboard" size={30} color="#FFAAC9" />
           <Text style={styles.sectionTitle}>วางแผนกิจกรรม</Text>
         </View>
@@ -234,14 +290,15 @@ const Dashboard = ({ navigation }) => {
               <Text style={styles.examName}>{activity.title}</Text>
               <Text style={styles.examName}>
                 <Text style={styles.examDate}>
-                  <Entypo name="location-pin" size={24} color="#FFAAC9" /> 
-                </Text> 
-                {' '}หมวดหมู่: {activity.category === 'study' ? 'อ่านหนังสือ' : 'อื่นๆ'}
+                  <Entypo name="location-pin" size={24} color="#FFAAC9" />
+                </Text>{" "}
+                หมวดหมู่:{" "}
+                {activity.category === "study" ? "อ่านหนังสือ" : "อื่นๆ"}
               </Text>
             </View>
           ))
         ) : (
-          <Text style={[styles.roomText, { textAlign: 'center', margin: 10 }]}>
+          <Text style={[styles.roomText, { textAlign: "center", margin: 10 }]}>
             ไม่มีกิจกรรมในสัปดาห์นี้
           </Text>
         )}
@@ -260,7 +317,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#4A4A4A",
-    marginHorizontal: 15
+    marginHorizontal: 15,
   },
 
   cardHeader: {
@@ -278,7 +335,7 @@ const styles = StyleSheet.create({
   tagText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   timeRange: { color: "#FFF", fontWeight: "600" },
   locationRow: { flexDirection: "row", alignItems: "center" },
-  roomText: { color: "#EA3287", fontSize: 15, fontFamily: 'Inter_400Regular' },
+  roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
 
   // Exam List Pink Style
   examSection: { marginBottom: 25 },
@@ -287,7 +344,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     borderColor: "#da50503b",
-    marginBottom: 10
+    marginBottom: 10,
   },
   examIconBox: {
     backgroundColor: "#FFF0F3",
@@ -296,8 +353,13 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   examInfo: { flex: 1 },
-  examName: { fontSize: 16, color: "#EA3287", fontFamily: 'Inter_400Regular' },
-  examDate: { fontSize: 13, color: "#C7005C", marginTop: 2, fontFamily: 'Inter_700Bold' },
+  examName: { fontSize: 16, color: "#EA3287", fontFamily: "Inter_400Regular" },
+  examDate: {
+    fontSize: 13,
+    color: "#C7005C",
+    marginTop: 2,
+    fontFamily: "Inter_700Bold",
+  },
   emptyText: { color: "#FFB7C5", fontStyle: "italic", textAlign: "center" },
 
   // Quick Add Pink Style
