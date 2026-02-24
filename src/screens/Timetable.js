@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import {
   useFonts,
   Inter_400Regular,
@@ -85,6 +86,7 @@ const Timetable = () => {
     // reset form...
   };
 
+  const [selectedExamList, setSelectedExamList] = useState("default");
   const [examList, setExamList] = useState(
     table.map((c) => ({
       id: c.id,
@@ -268,13 +270,13 @@ const Timetable = () => {
         </Text>
       </TouchableOpacity>
 
-      {mode === "class" && (
+      <View>
         <CustomDropdown
           placeholder={selectedTable}
-          data={tableList} // Use the state variable here
+          data={tableList}
           onSelect={(item) => setSelectedTable(item.label)}
         />
-      )}
+      </View>
 
       {mode === "class" && (
         <ScrollView style={styles.listArea}>
@@ -419,31 +421,153 @@ const Timetable = () => {
           </View>
         </ScrollView>
       )}
-      {/* MODAL for add/del group */}
-      <Modal
-        visible={modalTableVisible}
-        animationType="slide"
-        transparent={true}
-      >
+      {/* 4. Modal ฟอร์ม (จัดการตารางเรียน/กลุ่ม) */}
+      <Modal visible={modalTableVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <TextInput
-              placeholder="e.g., Semester 1/2026"
-              style={styles.input}
-              value={newTableName}
-              onChangeText={setNewTableName}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleAddTable}>
-                <Text style={styles.saveBtnText}>Add to Dropdown</Text>
-              </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {mode === "class" ? "จัดการกลุ่มตารางเรียน" : "จัดการตารางสอบ"}
+            </Text>
+
+            {/* ส่วนเลือก Action: Add หรือ Delete */}
+            <View
+              style={{
+                flexDirection: "row",
+                marginBottom: 15,
+                justifyContent: "center",
+                gap: 20,
+              }}
+            >
               <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setModalTableVisible(false)}
+                onPress={() => setAction("add")}
+                style={{ flexDirection: "row", alignItems: "center" }}
               >
-                <Text style={styles.cancelBtnText}>ยกเลิก</Text>
+                <Text style={{ fontSize: 18 }}>
+                  {action === "add" ? "🔘" : "⚪"}
+                </Text>
+                <Text style={[styles.classlabel, { marginLeft: 5 }]}>
+                  เพิ่มกลุ่มใหม่
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setAction("delete")}
+                style={{ flexDirection: "row", alignItems: "center" }}
+              >
+                <Text style={{ fontSize: 18 }}>
+                  {action === "delete" ? "🔘" : "⚪"}
+                </Text>
+                <Text style={[styles.classlabel, { marginLeft: 5 }]}>
+                  ลบกลุ่ม
+                </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Content ตาม Action ที่เลือก */}
+            <View style={{ minHeight: 100, justifyContent: "center" }}>
+              {action === "add" ? (
+                <View>
+                  <TextInput
+                    placeholder="ชื่อกลุ่มใหม่ (เช่น Semester 1/67)"
+                    value={newTableName}
+                    onChangeText={setNewTableName}
+                    style={styles.input}
+                  />
+                </View>
+              ) : action === "delete" ? (
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#DDD",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Picker
+                    selectedValue={selectedTable}
+                    onValueChange={(itemValue) => setSelectedTable(itemValue)}
+                  >
+                    <Picker.Item
+                      label="-- เลือกกลุ่มที่ต้องการลบ --"
+                      value={null}
+                    />
+                    {tableList.map((item, index) => (
+                      <Picker.Item
+                        key={index}
+                        label={item.label}
+                        value={item.label}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              ) : (
+                <Text style={{ textAlign: "center", color: "#636E72" }}>
+                  กรุณาเลือกรูปแบบการจัดการ
+                </Text>
+              )}
+            </View>
+
+            {/* ปุ่มยืนยันการทำงาน */}
+            <TouchableOpacity
+              style={[
+                styles.saveBtn,
+                {
+                  marginTop: 20,
+                  opacity:
+                    (action === "add" && !newTableName) ||
+                    (action === "delete" && !selectedTable)
+                      ? 0.5
+                      : 1,
+                },
+              ]}
+              onPress={() => {
+                if (action === "add") {
+                  if (!newTableName || newTableName.trim() === "") return;
+
+                  const newOption = {
+                    label: newTableName,
+                    value: tableList.length + 1,
+                  };
+                  setTableList([...tableList, newOption]);
+                  setSelectedTable(newTableName);
+                  setNewTableName("");
+                }
+
+                if (action === "delete") {
+                  if (!selectedTable || selectedTable === "default") {
+                    Alert.alert("ขออภัย", "ไม่สามารถลบกลุ่มเริ่มต้นได้");
+                    return;
+                  }
+
+                  // ลบออกจากรายชื่อกลุ่ม (tableList)
+                  setTableList((prev) =>
+                    prev.filter((item) => item.label !== selectedTable),
+                  );
+                  // ลบวิชาทั้งหมดที่ผูกกับกลุ่มนี้ (table)
+                  setTable((prev) =>
+                    prev.filter((item) => item.table !== selectedTable),
+                  );
+
+                  setSelectedTable("default");
+                }
+
+                setModalTableVisible(false);
+                setAction(null); // Reset action for next time
+              }}
+            >
+              <Text style={styles.saveBtnText}>ยืนยันการทำรายการ</Text>
+            </TouchableOpacity>
+
+            {/* ปุ่มยกเลิก */}
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => {
+                setModalTableVisible(false);
+                setAction(null);
+              }}
+            >
+              <Text style={styles.cancelBtnText}>ยกเลิก</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -519,8 +643,8 @@ const Timetable = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <Text>Exam date</Text>
             <View style={styles.modalActions}>
-              <Text>Exam date</Text>
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setModalExamVisible(false)}
