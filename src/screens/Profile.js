@@ -148,7 +148,7 @@ const Profile = () => {
               {avatar ? (
                 <Image source={{ uri: avatar }} style={styles.avatarImage} />
               ) : (
-                <Ionicons name="person-circle" size={110} color="#110e0f" />
+                <Ionicons name="person-circle" size={110} color="#fed9e5" />
               )}
             </TouchableOpacity>
           </View>
