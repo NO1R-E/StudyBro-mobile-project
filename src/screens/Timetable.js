@@ -39,6 +39,7 @@ const Timetable = ({ navigation }) => {
   const [endTime, setEndTime] = useState(
     new Date(new Date().setHours(new Date().getHours() + 1)),
   );
+  const [editingExam, setEditingExam] = useState(null);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -94,8 +95,8 @@ const Timetable = ({ navigation }) => {
 
     const newEntry = {
       ...subject,
-      start: formatTime(startTime), 
-      end: formatTime(endTime), 
+      start: formatTime(startTime),
+      end: formatTime(endTime),
       id: Math.random().toString(),
       table: selectedTable,
     };
@@ -238,6 +239,14 @@ const Timetable = ({ navigation }) => {
     "Saturday",
     "Sunday",
   ];
+
+  const handleUpdateExam = () => {
+    setExamList((prev) =>
+      prev.map((ex) => (ex.id === editingExam.id ? editingExam : ex)),
+    );
+    setModalExamEditVisible(false);
+    setEditingExam(null);
+  };
 
   const handleMainAddPress = () => {
     if (mode === "class") {
@@ -467,7 +476,11 @@ const Timetable = ({ navigation }) => {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    onPress={() => setModalExamEditVisible(true)}
+                    style={{ paddingLeft: 14 }}
+                    onPress={() => {
+                      setEditingExam(item);
+                      setModalExamEditVisible(true);
+                    }}
                   >
                     <Feather name="edit" size={24} color="black" />
                   </TouchableOpacity>
@@ -931,8 +944,54 @@ const Timetable = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              แก้ไขวันสอบ: {editingExam?.name}
+            </Text>
+
+            <TextInput
+              placeholder="วันที่สอบ (เช่น 12 มี.ค. 67)"
+              style={styles.input}
+              value={editingExam?.examDate}
+              onChangeText={(text) =>
+                setEditingExam({ ...editingExam, examDate: text })
+              }
+            />
+
+            <TextInput
+              placeholder="เวลาเริ่ม (เช่น 09:00)"
+              style={styles.input}
+              value={editingExam?.startTime}
+              onChangeText={(text) =>
+                setEditingExam({ ...editingExam, startTime: text })
+              }
+            />
+
+            <TextInput
+              placeholder="เวลาสิ้นสุด (เช่น 12:00)"
+              style={styles.input}
+              value={editingExam?.endTime}
+              onChangeText={(text) =>
+                setEditingExam({ ...editingExam, endTime: text })
+              }
+            />
+
+            <TextInput
+              placeholder="ห้องสอบ"
+              style={styles.input}
+              value={editingExam?.room}
+              onChangeText={(text) =>
+                setEditingExam({ ...editingExam, room: text })
+              }
+            />
+
             <View style={styles.modalActions}>
-              <Text>Edit Exam</Text>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleUpdateExam}
+              >
+                <Text style={styles.saveBtnText}>บันทึกข้อมูลสอบ</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setModalExamEditVisible(false)}
