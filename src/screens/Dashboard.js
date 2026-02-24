@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,9 +15,46 @@ import {
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import Entypo from "@expo/vector-icons/Entypo";
+import { useRoute, useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const Dashboard = ({ navigation, route }) => {
-  const subjects = route?.params?.subjects ?? null;
+const Dashboard = ({ navigation }) => {
+  const route = useRoute();
+  const [userName, setUserName] = useState("ผู้ใช้");
+
+  const [userTable, setUserTable] = useState([]);
+  const [tableList, setTableList] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        try {
+          const savedTable = await AsyncStorage.getItem("user_table");
+          const savedTableList = await AsyncStorage.getItem("user_table_list");
+
+          if (savedTable) {
+            const parsedTable = JSON.parse(savedTable);
+            setUserTable(parsedTable);
+            // FIX: Pass the parsed data directly to the function
+            calculateNextClass(parsedTable);
+          }
+
+          if (savedTableList) setTableList(JSON.parse(savedTableList));
+        } catch (error) {
+          console.error("Failed to load data on Dashboard", error);
+        }
+      };
+
+      loadData();
+    }, []),
+  );
+
+  useEffect(() => {
+    if (route.params?.userName) {
+      setUserName(route.params.userName);
+    }
+  }, [route.params?.userName]);
+
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [nextClasses, setNextClasses] = useState([]);
@@ -84,14 +121,76 @@ const Dashboard = ({ navigation, route }) => {
   useEffect(() => {
     console.log("===== SUBJECTS CHANGED =====");
 
-    if (!subjects) {
-      console.log("Subjects is NULL");
-      return;
-    }
+  const getMinutesWithOffset = (offsetHours = 0) => {
+    const now = new Date();
+    // We add the offset and set minutes to 0 if you want to check "Top of the hour"
+    // or leave as is for a rolling window.
+    return (now.getHours() + offsetHours) * 60 + now.getMinutes();
+  };
 
-    console.log("Subjects length:", subjects.length);
-    console.table(subjects);
-  }, [subjects]);
+  const calculateUpcomingActivities = () => {
+    const now = new Date();
+    const sevenDaysLater = new Date();
+    sevenDaysLater.setDate(now.getDate() + 7);
+
+    const upcoming = mockActivities.filter((activity) => {
+      const activityDate = new Date(activity.date);
+      return activityDate >= now && activityDate <= sevenDaysLater;
+    });
+
+    setUpcomingActivities(upcoming);
+  };
+  const calculateNextClass = (data = userTable) => {
+    if (!data || data.length === 0) return;
+
+    const now = new Date();
+    const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
+
+    // Use the helper to define your window
+    const startTimeLimit = getMinutesWithOffset(0); // Current time
+    const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
+
+    console.log(
+      `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
+    );
+    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    const todayClasses = data
+      .filter((c) => c.day === currentDay)
+      .map((c) => {
+        let h,
+          m = 0;
+        if (c.start && String(c.start).includes(":")) {
+          [h, m] = c.start.split(":").map(Number);
+        } else {
+          h = Number(c.start);
+        }
+        return { ...c, startMinutes: h * 60 + m };
+      })
+      .filter((c) => {
+        // Flexible window: starts after now, but before the "hour limit"
+        return (
+          c.startMinutes >= startTimeLimit && c.startMinutes <= endTimeLimit
+        );
+      })
+      .sort((a, b) => a.startMinutes - b.startMinutes);
+
+    const result = todayClasses[0] || null;
+    setNextClass(result);
+    console.log("Next class found:", result);
+  };
+
+  const calculateUpcomingExams = () => {
+    const now = new Date();
+    const sevenDaysLater = new Date();
+    sevenDaysLater.setDate(now.getDate() + 7);
+
+    const upcoming = mockExams.filter((exam) => {
+      const examDate = new Date(exam.date);
+      return examDate >= now && examDate <= sevenDaysLater;
+    });
+
+    setUpcomingExams(upcoming);
+  };
 
   //อัพเดตอัตโนมัติทุกนาที
   useEffect(() => {
@@ -106,8 +205,8 @@ const Dashboard = ({ navigation, route }) => {
     >
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷 </Text>
-        <Text style={styles.dateText}>{thaiDate}</Text>
+        <Text style={styles.welcomeText}>สวัสดี, {userName} </Text>
+        <Text style={styles.dateText}>วันอังคารที่ 17 ก.พ. 2026</Text>
       </View>
 
       <View style={styles.quickAddSection}>
@@ -129,36 +228,94 @@ const Dashboard = ({ navigation, route }) => {
         </View>
       </View>
 
+      {/* คาบเรียนถัดไป */}
       <View style={styles.card}>
-        <View style={{ flexDirection: "row" }}>
-          <Feather name="book-open" size={30} color="#FFAAC9" />
-          <Text style={styles.sectionTitle}>คาบเรียนถัดไป</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            marginBottom: 15,
+            alignItems: "center",
+          }}
+        >
+          <Feather name="book-open" size={26} color="#C7005C" />
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: "#C7005C",
+                borderLeftColor: "#C7005C",
+                borderLeftWidth: 4,
+                paddingLeft: 10,
+                marginLeft: 10,
+              },
+            ]}
+          >
+            คาบเรียนถัดไป
+          </Text>
         </View>
-        {nextClasses && nextClasses.length > 0 ? (
-          <TouchableOpacity style={styles.nextClassCard}>
+
+        {nextClass ? (
+          <View
+            style={[
+              styles.nextClassCard,
+              {
+                backgroundColor: "#FDF2F8", // Pinkish background
+                borderColor: "#FCCEE8", // Pink border
+                borderWidth: 2,
+                borderRadius: 12,
+                padding: 15,
+              },
+            ]}
+          >
             <View style={styles.cardHeader}>
-              <View style={styles.tag}>
+              <View style={[styles.tag, { backgroundColor: "#EA3287" }]}>
                 <Text style={styles.tagText}>Soon</Text>
               </View>
-
-              <Text style={styles.timeRange}>
-                {nextClasses[0].start} - {nextClasses[0].end}
+              <Text style={[styles.timeRange, { color: "#C7005C" }]}>
+                {nextClass.start} - {nextClass.end}
               </Text>
             </View>
 
-            <Text style={styles.roomText}>{nextClasses[0].name}</Text>
+            <Text
+              style={[
+                styles.classNameText,
+                {
+                  color: "#EA3287",
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  marginVertical: 5,
+                },
+              ]}
+            >
+              {nextClass.code} {nextClass.name}
+            </Text>
 
             <View style={styles.locationRow}>
-              <Ionicons name="location" size={16} color="#000000" />
-              <Text style={styles.roomText}>
-                ห้องเรียน: {nextClasses[0].room}
+              <Ionicons name="location" size={16} color="#EA3287" />
+              <Text style={[styles.roomText, { color: "#EA3287" }]}>
+                {" "}
+                ห้อง: {nextClass.room}
               </Text>
             </View>
-          </TouchableOpacity>
+          </View>
         ) : (
-          <View style={styles.nextClassCard}>
+          <View
+            style={{
+              backgroundColor: "#FDF2F8",
+              borderColor: "#FCCEE8",
+              borderWidth: 2,
+              borderRadius: 12,
+              padding: 20,
+              alignItems: "center",
+            }}
+          >
+            <Feather name="coffee" size={24} color="#C7005C" />
             <Text
-              style={[styles.roomText, { textAlign: "center", margin: 10 }]}
+              style={{
+                color: "#C7005C",
+                marginTop: 5,
+                fontFamily: "Inter_400Regular",
+              }}
             >
               ไม่มีเรียนแล้ววันนี้
             </Text>
