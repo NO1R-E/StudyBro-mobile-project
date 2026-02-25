@@ -12,21 +12,24 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
-import Entypo from '@expo/vector-icons/Entypo';
-import AntDesign from '@expo/vector-icons/AntDesign';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import Entypo from "@expo/vector-icons/Entypo";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import * as ImagePicker from "expo-image-picker";
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Profile = () => {
-  
   const navigation = useNavigation();
 
   const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
       Alert.alert("you don't have permission to access this");
@@ -52,47 +55,46 @@ const Profile = () => {
 
   //คณะและสาขา
   const facultyData = {
-    "ศวท": ["IT", "Computer Science"],
-    "วิศวะ": ["Computer Engineer", "ไฟฟ้า"],
+    ศวท: ["IT", "Computer Science"],
+    วิศวะ: ["Computer Engineer", "ไฟฟ้า"],
   };
-
 
   // สร้าง State สำหรับเก็บข้อมูลโปรไฟล์
   const [profile, setProfile] = useState({
     name: "",
     faculty: "",
-    major: "", 
+    major: "",
     year: "",
     studentId: "",
     avatar: "",
   });
 
   // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
-    useEffect(() => {
-      const loadProfile = async () => {
-        try {
-          const savedProfile = await AsyncStorage.getItem('myProfile');
-          if (savedProfile) {
-            setProfile(JSON.parse(savedProfile));
-          }
-        } catch (e) {
-          console.error("Failed to load profile", e);
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const savedProfile = await AsyncStorage.getItem("myProfile");
+        if (savedProfile) {
+          setProfile(JSON.parse(savedProfile));
         }
-      };
-      loadProfile();
-    }, []);
-  
-    // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
-    useEffect(() => {
-      const saveProfile = async () => {
-        try {
-          await AsyncStorage.setItem('myProfile', JSON.stringify(profile));
-        } catch (e) {
-          console.error("Failed to save profile", e);
-        }
-      };
-      saveProfile();
-    }, [profile]);
+      } catch (e) {
+        console.error("Failed to load profile", e);
+      }
+    };
+    loadProfile();
+  }, []);
+
+  // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
+  useEffect(() => {
+    const saveProfile = async () => {
+      try {
+        await AsyncStorage.setItem("myProfile", JSON.stringify(profile));
+      } catch (e) {
+        console.error("Failed to save profile", e);
+      }
+    };
+    saveProfile();
+  }, [profile]);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -101,11 +103,9 @@ const Profile = () => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-
   if (!fontsLoaded) {
     return null; // รอโหลดฟอนต์ก่อน
   }
-
 
   // ฟังก์ชันสำหรับการล้างข้อมูล (Clear Data)
   const handleClearData = () => {
@@ -119,11 +119,17 @@ const Profile = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              await AsyncStorage.multiRemove(['myProfile', 'myTasks', 'user_table', 'user_table_list', 'user_exams']);
+              await AsyncStorage.multiRemove([
+                "myProfile",
+                "myTasks",
+                "user_table",
+                "user_table_list",
+                "user_exams",
+              ]);
               setProfile({
                 name: "",
                 faculty: "",
-                major: "", 
+                major: "",
                 year: "",
                 studentId: "",
                 avatar: "",
@@ -162,7 +168,10 @@ const Profile = () => {
           <View style={styles.avatarContainer}>
             <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
               {profile.avatar ? (
-                <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: profile.avatar }}
+                  style={styles.avatarImage}
+                />
               ) : (
                 <Ionicons name="person-circle" size={110} color="#fed9e5" />
               )}

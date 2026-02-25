@@ -14,7 +14,6 @@ import {
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import Entypo from "@expo/vector-icons/Entypo";
-import { useRoute } from "@react-navigation/native";
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -131,10 +130,10 @@ const Dashboard = ({ navigation }) => {
     const startTimeLimit = getMinutesWithOffset(0); // Current time
     const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
 
-    // console.log(
-    //   `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
-    // );
-    // console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    console.log(
+      `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
+    );
+    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
     const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
@@ -161,10 +160,10 @@ const Dashboard = ({ navigation }) => {
   };
 
   // คำนวณวันสอบที่ใกล้จะถึง
-  const calculateUpcomingExams = () => {
+  const calculateUpcomingExams = (data = examList) => {
     const now = new Date();
     now.setHours(0, 0, 0, 0); // Set to start of today for comparison
-    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    // console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
     const upcoming = data
       .filter((exam) => {
         if (!exam.examDate) return false;
@@ -182,7 +181,7 @@ const Dashboard = ({ navigation }) => {
       });
 
     setUpcomingExams(upcoming);
-    console.log(upcoming);
+    // console.log(upcoming);
   };
 
   // คำนวณกิจกรรมที่จะถึงใน 7 วัน (ดึงจาก Planner แทน Mock)
