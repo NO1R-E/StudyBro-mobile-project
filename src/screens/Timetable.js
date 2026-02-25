@@ -832,8 +832,11 @@ const Timetable = ({ navigation }) => {
               value={subject.room}
               onChangeText={(t) => setSubject({ ...subject, room: t })}
             />
+          </View>
+        </View>
+      </Modal>
 
-            {/* <View style={styles.row}>
+      {/* <View style={styles.row}>
               <TextInput
                 placeholder="รหัสวิชา"
                 style={styles.input}
@@ -842,34 +845,11 @@ const Timetable = ({ navigation }) => {
               />
               <Text>ชื่อวิชา</Text>
               <TextInput
-                placeholder="Mobile Application ... "
-                style={styles.input}
-                value={subject.name}
-                onChangeText={(t) => setSubject({ ...subject, name: t })}
+                placeholder="จบ (00:00)"
+                style={[styles.input, { flex: 1 }]}
+                value={subject.end}
+                onChangeText={(t) => setSubject({ ...subject, end: t })}
               />
-            </View> */}
-
-            <View style={{ flexDirection: "row" }}>
-              <View style={{ flex: 1, marginRight: 5 }}>
-                <Text style={styles.label}>เวลาเริ่ม</Text>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowStartTimePicker(true)}
-                >
-                  <Text style={styles.pickerText}>{formatTime(startTime)}</Text>
-                  <Ionicons name="time-outline" size={20} color="gray" />
-                </TouchableOpacity>
-              </View>
-              <View style={{ flex: 1, marginLeft: 5 }}>
-                <Text style={styles.label}>เวลาสิ้นสุด</Text>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowEndTimePicker(true)}
-                >
-                  <Text style={styles.pickerText}>{formatTime(endTime)}</Text>
-                  <Ionicons name="time-outline" size={20} color="gray" />
-                </TouchableOpacity>
-              </View>
             </View>
 
             {showStartTimePicker && (
@@ -905,29 +885,7 @@ const Timetable = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => {
-                  setModalSubjectVisible(false);
-                }}
-              >
-                <Text style={styles.cancelBtnText}>ยกเลิก</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      {/* MODAL for add/del Exam */}
-      <Modal
-        visible={modalExamVisible}
-        animationType="slide"
-        transparent={true}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text>Exam date</Text>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setModalExamVisible(false)}
+                onPress={() => setModalVisible(false)}
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>

@@ -14,11 +14,12 @@ import {
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import Entypo from "@expo/vector-icons/Entypo";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useFocusEffect } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
+import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Dashboard = ({ navigation }) => {
+  const route = useRoute();
   const [userName, setUserName] = useState("ผู้ใช้");
 
   const [userTable, setUserTable] = useState([]);
@@ -74,93 +75,6 @@ const Dashboard = ({ navigation }) => {
     return date.toLocaleDateString("th-TH", options);
   };
 
-  // ข้อมูลจำลอง (วิชาเรียน)
-  const mockClasses = [
-    {
-      id: "1",
-      name: "Midterm Calculus I",
-      date: "15/03/2003-02-20",
-      timeStart: "09:00",
-      timeEnd: "22:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "2",
-      day: "Sunday",
-      name: "Digital Logic",
-      start: "16:30",
-      end: "18:30",
-      room: "302",
-    },
-  ];
-
-  const mockExams = [
-    {
-      id: "1",
-      name: "Midterm Calculus I",
-      date: "15/03/2003-02-20",
-      timeStart: "09:00",
-      timeEnd: "22:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "2",
-      name: "Physics Quiz",
-      date: "2026-02-22",
-      timeStart: "13:00",
-      timeEnd: "14:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "3",
-      name: "English Final",
-      date: "2026-03-15",
-      timeStart: "10:00",
-      timeEnd: "12:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-  ];
-  const mockActivities = [
-    {
-      id: "1",
-      name: "Midterm Calculus I",
-      date: "15/03/2003-02-20",
-      timeStart: "09:00",
-      timeEnd: "22:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "2",
-      name: "Physics Quiz",
-      date: "2026-02-22",
-      timeStart: "13:00",
-      timeEnd: "14:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-    {
-      id: "3",
-      name: "English Final",
-      date: "2026-03-15",
-      timeStart: "10:00",
-      timeEnd: "12:00",
-      courseID: "01418497",
-      sec: "700",
-      examRoom: "LH4-101",
-    },
-  ];
-
   useEffect(() => {
     calculateNextClass();
     calculateUpcomingExams();
@@ -202,31 +116,14 @@ const Dashboard = ({ navigation }) => {
     }, []),
   );
 
-  // ดึงข้อมูล Profile ทุกครั้งที่เปิดมาหน้านี้
-  useFocusEffect(
-    useCallback(() => {
-      const fetchProfile = async () => {
-        try {
-          const savedProfile = await AsyncStorage.getItem("myProfile");
-          if (savedProfile) {
-            const profile = JSON.parse(savedProfile);
-            setUserName(profile.name || "ผู้ใช้");
-          }
-        } catch (error) {
-          console.error("ดึงข้อมูลมา Dashboard ล้มเหลว", error);
-        }
-      };
-      fetchProfile();
-    }, []),
-  );
-
   const getMinutesWithOffset = (offsetHours = 0) => {
     const now = new Date();
     // We add the offset and set minutes to 0 if you want to check "Top of the hour"
     // or leave as is for a rolling window.
     return (now.getHours() + offsetHours) * 60 + now.getMinutes();
   };
-  const calculateNextClass = () => {
+  const calculateNextClass = (data = userTable) => {
+    if (!data || data.length === 0) return;
     const now = new Date();
     const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
 
@@ -562,10 +459,9 @@ const Dashboard = ({ navigation }) => {
               <Text style={styles.examName}>{activity.title}</Text>
               <Text style={styles.examName}>
                 <Text style={styles.examDate}>
-                  <Entypo name="location-pin" size={24} color="#FFAAC9" />
+                  <Entypo name="location-pin" size={24} color="FFAAC9" />
                 </Text>{" "}
-                หมวดหมู่:{" "}
-                {activity.category === "study" ? "อ่านหนังสือ" : "อื่นๆ"}
+                {activity.location}
               </Text>
             </View>
           ))
@@ -590,7 +486,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#4A4A4A",
     marginHorizontal: 15,
-    marginHorizontal: 15,
   },
 
   cardHeader: {
@@ -608,7 +503,6 @@ const styles = StyleSheet.create({
   tagText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   timeRange: { color: "#FFF", fontWeight: "600" },
   locationRow: { flexDirection: "row", alignItems: "center" },
-  roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
   roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
 
   // Exam List Pink Style
