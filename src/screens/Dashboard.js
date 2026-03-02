@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   useFonts,
   Inter_400Regular,
@@ -20,7 +21,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const Dashboard = ({ navigation }) => {
   const route = useRoute();
   const [userName, setUserName] = useState("ผู้ใช้");
-
+  const [activityFilter, setActivityFilter] = useState("today");
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [userTable, setUserTable] = useState([]);
   const [tableList, setTableList] = useState([]);
   const [examList, setExamList] = useState([]);
@@ -184,88 +186,60 @@ const Dashboard = ({ navigation }) => {
     // console.log(upcoming);
   };
 
-  // คำนวณกิจกรรมที่จะถึงใน 7 วัน (ดึงจาก Planner แทน Mock)
   const calculateUpcomingActivities = () => {
     const now = new Date();
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(now.getDate() + 7);
 
-    const upcoming = tasks.filter((activity) => {
+    const filtered = tasks.filter((activity) => {
       const activityDate = new Date(activity.endTimeMs);
-
-      const isInNext7Days =
-        activityDate >= now && activityDate <= sevenDaysLater;
-
       const isPending = activity.status === "pending";
 
-      return isInNext7Days && isPending;
+      if (!isPending) return false;
+
+      // 🔹 วันนี้
+      if (activityFilter === "today") {
+        return activityDate.toDateString() === now.toDateString();
+      }
+
+      // 🔹 สัปดาห์นี้
+      if (activityFilter === "week") {
+        const firstDayOfWeek = new Date(now);
+        firstDayOfWeek.setDate(now.getDate() - now.getDay());
+
+        const lastDayOfWeek = new Date(firstDayOfWeek);
+        lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+
+        return activityDate >= firstDayOfWeek &&
+          activityDate <= lastDayOfWeek;
+      }
+
+      // 🔹 เดือนนี้
+      if (activityFilter === "month") {
+        return (
+          activityDate.getMonth() === now.getMonth() &&
+          activityDate.getFullYear() === now.getFullYear()
+        );
+      }
+
+      return false;
     });
 
-    setUpcomingActivities(upcoming);
+    setUpcomingActivities(filtered);
   };
-
+  const getEmptyMessage = () => {
+    if (activityFilter === "today") {
+      return "ไม่มีกิจกรรมในวันนี้";
+    }
+    if (activityFilter === "week") {
+      return "ไม่มีกิจกรรมในสัปดาห์นี้";
+    }
+    if (activityFilter === "month") {
+      return "ไม่มีกิจกรรมในเดือนนี้";
+    }
+    return "ไม่มีกิจกรรม";
+  };
   useEffect(() => {
     calculateUpcomingActivities();
-  }, [tasks]);
-
-  // const calculateNextClass = (semestersData) => {
-  //   const now = new Date();
-  //   const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
-  //   const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-
-  //   let allTodayClasses = [];
-
-  //   semestersData.forEach(sem => {
-  //     const todaySchedule = sem.days?.find(d => d.dayName === currentDay);
-  //     if (todaySchedule) {
-  //       todaySchedule.subjects?.forEach(sub => {
-  //         if (sub.start) {
-  //           const [h, m] = sub.start.split(":").map(Number);
-  //           const startMinutes = h * 60 + m;
-  //           if (startMinutes > currentTimeMinutes) {
-  //             allTodayClasses.push({ ...sub, startMinutes });
-  //           }
-  //         }
-  //       });
-  //     }
-  //   });
-
-  //   allTodayClasses.sort((a, b) => a.startMinutes - b.startMinutes);
-  //   setNextClass(allTodayClasses[0] || null);
-  // };
-
-  // const calculateUpcomingExams = (semestersData) => {
-  //   const now = new Date();
-  //   now.setHours(0,0,0,0);
-  //   const sevenDaysLater = new Date(now);
-  //   sevenDaysLater.setDate(now.getDate() + 7);
-
-  //   let allExams = [];
-
-  //   semestersData.forEach(sem => {
-  //     sem.days?.forEach(day => {
-  //       day.subjects?.forEach(sub => {
-  //         if (sub.examDate) {
-  //           let parsedDate;
-  //           if (sub.examDate.includes('/')) {
-  //             const parts = sub.examDate.split('/');
-  //             if (parts.length === 3) {
-  //               parsedDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-  //             }
-  //           } else {
-  //             parsedDate = new Date(sub.examDate);
-  //           }
-
-  //           if (parsedDate && parsedDate >= now && parsedDate <= sevenDaysLater) {
-  //             allExams.push(sub);
-  //           }
-  //         }
-  //       });
-  //     });
-  //   });
-
-  //   setUpcomingExams(allExams);
-  // };
+  }, [tasks, activityFilter]);
 
   return (
     <ScrollView
@@ -523,8 +497,73 @@ const Dashboard = ({ navigation }) => {
           >
             วางแผนกิจกรรม
           </Text>
+          <TouchableOpacity
+            onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+            style={{
+              marginLeft: "auto",
+              backgroundColor: "#F3F3F3",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ marginRight: 5 }}>
+              {activityFilter === "today"
+                ? "วันนี้"
+                : activityFilter === "week"
+                  ? "สัปดาห์นี้"
+                  : "เดือนนี้"}
+            </Text>
+            <MaterialIcons name="keyboard-arrow-down" size={20} />
+          </TouchableOpacity>
         </View>
+        {showFilterDropdown && (
+          <View
+            style={{
+              position: "absolute",
+              top: 45,          // ปรับตามตำแหน่ง header
+              right: 0,
+              backgroundColor: "white",
+              borderRadius: 10,
+              paddingVertical: 5,
+              width: 150,
+              elevation: 5,     // Android shadow
+              zIndex: 1000,     // iOS
+            }}
+          >
+            <TouchableOpacity
+              style={{ padding: 12 }}
+              onPress={() => {
+                setActivityFilter("today");
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text>วันนี้</Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              style={{ padding: 12 }}
+              onPress={() => {
+                setActivityFilter("week");
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text>สัปดาห์นี้</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ padding: 12 }}
+              onPress={() => {
+                setActivityFilter("month");
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text>เดือนนี้</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {upcomingActivities.length > 0 ? (
           upcomingActivities.map((activity) => (
             <View
@@ -600,7 +639,7 @@ const Dashboard = ({ navigation }) => {
                 fontFamily: "Inter_400Regular",
               }}
             >
-              ไม่มีกิจกรรมในสัปดาห์นี้
+              {getEmptyMessage()}
             </Text>
           </View>
         )}
