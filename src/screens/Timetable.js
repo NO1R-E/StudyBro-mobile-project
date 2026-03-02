@@ -501,47 +501,32 @@ const Timetable = ({ navigation }) => {
                   </Text>
                 ) : (
                   dailyClasses.map((item) => (
-                    <View key={item.id} style={styles.classCard}>
-                      <View style={{ flexDirection: "row", gap: 20 }}>
-                        <Text
-                          style={[styles.timeLabel, { color: theme?.text }]}
-                        >
-                          {item.start} - {item.end}
-                        </Text>
-                        <View>
-                          <Text
-                            style={[
-                              styles.classlabel,
-                              { color: theme?.detail },
-                            ]}
-                          >
-                            {item.code} sec {item.sec}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.classlabel,
-                              { color: theme?.detail },
-                            ]}
-                          >
-                            {item.name}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.classlabel,
-                              { color: theme?.detail },
-                            ]}
-                          >
-                            ห้อง: {item.room}
-                          </Text>
-                        </View>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteSubject(item.id)}
-                        style={{ padding: 10 }}
-                      >
-                        <Feather name="trash-2" size={20} color="#FF7675" />
-                      </TouchableOpacity>
-                    </View>
+               <View key={item.id} style={styles.classCard}>
+  <View style={{ flexDirection: "row", gap: 20 }}>
+    <Text style={[styles.timeLabel, { color: theme?.text }]}>
+      {item.start} - {item.end}
+    </Text>
+    <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: "row",justifyContent:'space-between', alignItems: "center" }}>
+        <Text style={[styles.classlabel, { color: theme?.detail }]}>
+          {item.code} sec {item.sec}
+        </Text>
+        <TouchableOpacity
+          onPress={() => handleDeleteSubject(item.id)}
+          style={{ padding: 5, }}
+        >
+          <Feather name="trash-2" size={20} color="#FF7675" />
+        </TouchableOpacity>
+      </View>
+      <Text style={[styles.classlabel, { color: theme?.detail }]}>
+        {item.name}
+      </Text>
+      <Text style={[styles.classlabel, { color: theme?.detail }]}>
+        ห้อง: {item.room}
+      </Text>
+    </View>
+  </View>
+</View>
                   ))
                 )}
               </View>
