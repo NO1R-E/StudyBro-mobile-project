@@ -25,8 +25,8 @@ import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // --- 1. Import Firebase ---
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signOut } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, signOut } from "firebase/auth";
 
 // --- 2. Firebase Config (ใช้ตัวเดิมของคุณ) ---
 const firebaseConfig = {
@@ -36,7 +36,7 @@ const firebaseConfig = {
   storageBucket: "studybro-mobile-project.firebasestorage.app",
   messagingSenderId: "659667223336",
   appId: "1:659667223336:web:ba25c4788cc0b27d4bc61d",
-  measurementId: "G-YX12N8CHDP"
+  measurementId: "G-YX12N8CHDP",
 };
 
 // ตรวจสอบเพื่อไม่ให้ Firebase init ซ้ำ
@@ -152,7 +152,7 @@ const Profile = () => {
                 "user_table_list",
                 "user_exams",
                 "myTasks",
-                "current_username"
+                "current_username",
               ]);
 
               setProfile({
@@ -184,14 +184,14 @@ const Profile = () => {
         onPress: async () => {
           try {
             await signOut(auth); // สั่ง Firebase ให้ออกจากระบบ
-            await AsyncStorage.removeItem('current_username'); // ลบชื่อที่จำไว้ออก
+            await AsyncStorage.removeItem("current_username"); // ลบชื่อที่จำไว้ออก
             navigation.replace("Login"); // เด้งกลับไปหน้า Login
           } catch (error) {
             console.error("Logout Error:", error);
             Alert.alert("ข้อผิดพลาด", "ไม่สามารถลงชื่อออกได้ กรุณาลองใหม่");
           }
-        }
-      }
+        },
+      },
     ]);
   };
 
@@ -675,3 +675,9 @@ const styles = StyleSheet.create({
 });
 
 export default Profile;
+
+// const handleLogout = async () => {
+//   await auth.signOut();
+//   await AsyncStorage.clear(); // Important: Resets the timestamp so the next user doesn't skip their fetch
+//   // Reset local states to default
+// };
