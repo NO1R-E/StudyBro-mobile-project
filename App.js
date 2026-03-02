@@ -52,7 +52,7 @@ const MainTabs = () => {
           elevation: 10,
           borderTopWidth: 0,
         },
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
       })}
     >
       <Tab.Screen
