@@ -34,7 +34,12 @@ const MainTabs = () => {
           }
 
           return (
-            <View style={[styles.iconContainer, focused && styles.activeIconBackground]}>
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.activeIconBackground,
+              ]}
+            >
               <Ionicons name={iconName} size={size} color={color} />
             </View>
           );
@@ -70,7 +75,9 @@ const MainTabs = () => {
                   marginRight: 10,
                 }}
               />
-              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+              <Text
+                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
+              >
                 Home
               </Text>
             </View>
@@ -96,7 +103,9 @@ const MainTabs = () => {
                   marginRight: 10,
                 }}
               />
-              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+              <Text
+                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
+              >
                 Timetable
               </Text>
             </View>
@@ -122,7 +131,9 @@ const MainTabs = () => {
                   marginRight: 10,
                 }}
               />
-              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+              <Text
+                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
+              >
                 Planner
               </Text>
             </View>
@@ -131,7 +142,7 @@ const MainTabs = () => {
             backgroundColor: "#ffffff",
             height: 100,
           },
-        }} 
+        }}
       />
       <Tab.Screen
         name="Profile"
@@ -148,7 +159,9 @@ const MainTabs = () => {
                   marginRight: 10,
                 }}
               />
-              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+              <Text
+                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
+              >
                 Profile
               </Text>
             </View>
@@ -170,16 +183,16 @@ const App = () => {
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Login">
           {/* หน้า Login (ซ่อน Header ด้านบน) */}
-          <Stack.Screen 
-            name="Login" 
-            component={Login} 
-            options={{ headerShown: false }} 
+          <Stack.Screen
+            name="Login"
+            component={Login}
+            options={{ headerShown: false }}
           />
           {/* หน้าหลักที่รวม Tab ไว้ (ซ่อน Header เพราะ Tab จัดการเอง) */}
-          <Stack.Screen 
-            name="MainApp" 
-            component={MainTabs} 
-            options={{ headerShown: false }} 
+          <Stack.Screen
+            name="MainApp"
+            component={MainTabs}
+            options={{ headerShown: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>
