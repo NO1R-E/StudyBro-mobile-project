@@ -58,17 +58,80 @@ const MainTabs = () => {
       <Tab.Screen
         name="Home"
         component={Dashboard}
-        options={{ headerShown: false }}
+        options={{
+          headerTitle: () => (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Image
+                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
+                style={{
+                  width: 40,
+                  height: 40,
+                  resizeMode: "contain",
+                  marginRight: 10,
+                }}
+              />
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+                Home
+              </Text>
+            </View>
+          ),
+          headerStyle: {
+            backgroundColor: "#ffffff",
+            height: 100,
+          },
+        }}
       />
       <Tab.Screen
         name="Timetable"
         component={Timetable}
-        options={{ headerShown: false }}
+        options={{
+          headerTitle: () => (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Image
+                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
+                style={{
+                  width: 40,
+                  height: 40,
+                  resizeMode: "contain",
+                  marginRight: 10,
+                }}
+              />
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+                Timetable
+              </Text>
+            </View>
+          ),
+          headerStyle: {
+            backgroundColor: "#ffffff",
+            height: 100,
+          },
+        }}
       />
       <Tab.Screen
         name="Planner"
         component={Planner}
-        options={{ headerShown: false }}
+        options={{
+          headerTitle: () => (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Image
+                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
+                style={{
+                  width: 40,
+                  height: 40,
+                  resizeMode: "contain",
+                  marginRight: 10,
+                }}
+              />
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>
+                Planner
+              </Text>
+            </View>
+          ),
+          headerStyle: {
+            backgroundColor: "#ffffff",
+            height: 100,
+          },
+        }} 
       />
       <Tab.Screen
         name="Profile"
