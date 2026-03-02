@@ -3,6 +3,7 @@
     "name": "StudyBro",
     "slug": "StudyBro",
     "version": "1.0.0",
+    "scheme": "mystudyapp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

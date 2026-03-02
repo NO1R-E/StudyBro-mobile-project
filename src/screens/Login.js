@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
@@ -9,7 +10,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 
 // บังคับให้ WebBrowser ปิดอัตโนมัติเมื่อล็อกอินเสร็จ
 WebBrowser.maybeCompleteAuthSession();
@@ -26,9 +27,13 @@ const firebaseConfig = {
   measurementId: "G-YX12N8CHDP"
 };
 
-// ตรวจสอบว่ามีแอป Firebase ถูกสร้างไว้หรือยัง (ป้องกัน error)
+// ตรวจสอบว่ามีแอป Firebase ถูกสร้างไว้หรือยัง
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+
+// เปลี่ยนวิธีเรียกใช้งาน auth เพื่อให้มันจำการล็อกอินลงฮาร์ดดิสก์เครื่อง
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
 
 const Login = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
