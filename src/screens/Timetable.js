@@ -1,16 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Menu, Button } from "react-native-paper";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Modal,
-  TextInput,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
@@ -298,25 +287,11 @@ const Timetable = ({ navigation }) => {
     <View style={styles.container}>
       {/* 1. Toggle ระหว่าง ตารางเรียน / ตารางสอบ */}
       <View style={styles.toggleContainer}>
-        <TouchableOpacity
-          style={[styles.toggleBtn, mode === "class" && styles.activeBtn]}
-          onPress={() => setMode("class")}
-        >
-          <Text
-            style={mode === "class" ? styles.activeText : styles.inactiveText}
-          >
-            Time-table
-          </Text>
+        <TouchableOpacity style={[styles.toggleBtn, mode === "class" && styles.activeBtn]} onPress={() => setMode("class")}>
+          <Text style={mode === "class" ? styles.activeText : styles.inactiveText}>Time-table</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleBtn, mode === "exam" && styles.activeBtn]}
-          onPress={() => setMode("exam")}
-        >
-          <Text
-            style={mode === "exam" ? styles.activeText : styles.inactiveText}
-          >
-            Exam-Schedule
-          </Text>
+        <TouchableOpacity style={[styles.toggleBtn, mode === "exam" && styles.activeBtn]} onPress={() => setMode("exam")}>
+          <Text style={mode === "exam" ? styles.activeText : styles.inactiveText}>Exam-Schedule</Text>
         </TouchableOpacity>
       </View>
 
@@ -336,7 +311,7 @@ const Timetable = ({ navigation }) => {
       </View>
 
       {mode === "class" && (
-        <ScrollView style={styles.listArea}>
+        <ScrollView style={styles.listArea} showsVerticalScrollIndicator={false}>
           {days.map((day) => {
             const dailyClasses = table.filter(
               (c) => c.day === day && c.table === selectedTable,
@@ -426,6 +401,9 @@ const Timetable = ({ navigation }) => {
                             ห้อง: {item.room}
                           </Text>
                         </View>
+                        <TouchableOpacity onPress={() => handleDeleteSubject(day, item.id)} style={{justifyContent: 'center', padding: 5}}>
+                          <Feather name="trash-2" size={20} color="#FF7675" />
+                        </TouchableOpacity>
                       </View>
                       <TouchableOpacity
                         onPress={() => handleDeleteSubject(item.id)}
@@ -442,8 +420,9 @@ const Timetable = ({ navigation }) => {
         </ScrollView>
       )}
 
+      {/* ================= โหมดตารางสอบ ================= */}
       {mode === "exam" && (
-        <ScrollView style={styles.containerExam}>
+        <ScrollView style={styles.containerExam} showsVerticalScrollIndicator={false}>
           <View style={styles.examCard}>
             <View
               style={{ flexDirection: "row", justifyContent: "space-between" }}
@@ -783,6 +762,9 @@ const Timetable = ({ navigation }) => {
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleAddSubject}>
+                <Text style={styles.saveBtnText}>บันทึก</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -860,20 +842,8 @@ const Timetable = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9E2EB" },
-  toggleContainer: {
-    flexDirection: "row",
-    margin: 15,
-    backgroundColor: "#ffffff",
-    borderRadius: 25,
-    overflow: "hidden",
-    padding: 5,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 25,
-  },
+  toggleContainer: { flexDirection: "row", margin: 15, backgroundColor: "#ffffff", borderRadius: 25, padding: 5 },
+  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 25 },
   activeBtn: { backgroundColor: "#FFAAC9", elevation: 8 },
   activeText: {
     color: "#FFF",
