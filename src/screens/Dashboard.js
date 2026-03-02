@@ -19,33 +19,6 @@ const Dashboard = ({ navigation }) => {
   const [tableList, setTableList] = useState([]);
   const [examList, setExamList] = useState([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const loadData = async () => {
-        try {
-          const savedTable = await AsyncStorage.getItem("user_table");
-          const savedTableList = await AsyncStorage.getItem("user_table_list");
-          const savedExamList = await AsyncStorage.getItem("user_exams");
-          if (savedTable) {
-            const parsedTable = JSON.parse(savedTable);
-            setUserTable(parsedTable);
-            // FIX: Pass the parsed data directly to the function
-            calculateNextClass(parsedTable);
-          }
-
-          if (savedTableList) setTableList(JSON.parse(savedTableList));
-          if (savedExamList) {
-            const parsedExams = JSON.parse(savedExamList);
-            setExamList(parsedExams);
-            calculateUpcomingExams(parsedExams); // Trigger calculation immediately
-          }
-        } catch (error) {
-          console.error("Failed to load data on Dashboard", error);
-        }
-      };
-      loadData();
-    }, []),
-  );
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
@@ -68,47 +41,74 @@ const Dashboard = ({ navigation }) => {
     return date.toLocaleDateString("th-TH", options);
   };
 
-  useEffect(() => {
-    calculateNextClass();
-    calculateUpcomingExams();
-    calculateUpcomingActivities();
-  }, []);
+  // useEffect(() => {
+  //   calculateNextClass();
+  //   calculateUpcomingExams();
+  //   calculateUpcomingActivities();
+  // }, []);
+ 
+  const loadData = async () => {
+    try {
+      const savedTable = await AsyncStorage.getItem("user_table");
+      const savedTableList = await AsyncStorage.getItem("user_table_list");
+      const savedExamList = await AsyncStorage.getItem("user_exams");
+      const savedTasks = await AsyncStorage.getItem("myTasks");
+      const savedProfile = await AsyncStorage.getItem("myProfile");
+
+      // ===== ตารางเรียน =====
+      if (savedTable) {
+        const parsedTable = JSON.parse(savedTable);
+        setUserTable(parsedTable);
+        calculateNextClass(parsedTable);
+      } else {
+        setUserTable([]);
+        setNextClass(null);
+      }
+
+      // ===== รายชื่อกลุ่ม =====
+      if (savedTableList) {
+        setTableList(JSON.parse(savedTableList));
+      } else {
+        setTableList([]);
+      }
+
+      // ===== ตารางสอบ =====
+      if (savedExamList) {
+        const parsedExams = JSON.parse(savedExamList);
+        setExamList(parsedExams);
+        calculateUpcomingExams(parsedExams);
+      } else {
+        setExamList([]);
+        setUpcomingExams([]);
+      }
+
+      // ===== Planner Tasks =====
+      if (savedTasks) {
+        const parsedTasks = JSON.parse(savedTasks);
+        setTasks(parsedTasks);
+      } else {
+        setTasks([]);
+        setUpcomingActivities([]);
+      }
+
+      // ===== Profile =====
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        setUserName(profile.name || "ผู้ใช้");
+      } else {
+        setUserName("ผู้ใช้");
+      }
+    } catch (error) {
+      console.error("Failed to load Dashboard data", error);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
-      const fetchData = async () => {
-        try {
-          const savedTasks = await AsyncStorage.getItem("myTasks");
-          if (savedTasks) {
-            setTasks(JSON.parse(savedTasks));
-            console.log(JSON.parse(savedTasks));
-          }
-        } catch (error) {
-          console.error("Load Dashboard Data Failed", error);
-        }
-      };
-      fetchTasks();
+      loadData();
     }, []),
   );
-
-  // ดึงข้อมูล Profile ทุกครั้งที่เปิดมาหน้านี้
-  useFocusEffect(
-    useCallback(() => {
-      const fetchProfile = async () => {
-        try {
-          const savedProfile = await AsyncStorage.getItem("myProfile");
-          if (savedProfile) {
-            const profile = JSON.parse(savedProfile);
-            setUserName(profile.name || "ผู้ใช้");
-          }
-        } catch (error) {
-          console.error("ดึงข้อมูลมา Dashboard ล้มเหลว", error);
-        }
-      };
-      fetchProfile();
-    }, []),
-  );
-
+  
   const getMinutesWithOffset = (offsetHours = 0) => {
     const now = new Date();
     // We add the offset and set minutes to 0 if you want to check "Top of the hour"
@@ -150,7 +150,7 @@ const Dashboard = ({ navigation }) => {
 
     const result = todayClasses[0] || null;
     setNextClass(result);
-    // console.log("Next class found:", result);
+    // console.log("Next class found:", result);  
   };
 
   // คำนวณวันสอบที่ใกล้จะถึง
@@ -197,6 +197,10 @@ const Dashboard = ({ navigation }) => {
 
     setUpcomingActivities(upcoming);
   };
+
+  useEffect(() => {
+    calculateUpcomingActivities();
+  }, [tasks]);
 
   // const calculateNextClass = (semestersData) => {
   //   const now = new Date();
@@ -264,7 +268,7 @@ const Dashboard = ({ navigation }) => {
     >
       {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>สวัสดี, คนดำ🥷</Text>
+        <Text style={styles.welcomeText}>สวัสดี, {userName}</Text>
         <Text style={styles.dateText}>{formatDateOnly(currentDate)}</Text>
       </View>
 

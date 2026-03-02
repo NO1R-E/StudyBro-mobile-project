@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -248,23 +249,42 @@ const Timetable = ({ navigation }) => {
     }
   };
 
-  useEffect(() => {
-    console.log("data has been load");
-    const loadAppData = async () => {
-      try {
-        const savedTable = await AsyncStorage.getItem("user_table");
-        const savedTableList = await AsyncStorage.getItem("user_table_list");
-        const savedExams = await AsyncStorage.getItem("user_exams");
+  useFocusEffect(
+    useCallback(() => {
+      console.log("data has been load (focus)");
 
-        if (savedTable) setTable(JSON.parse(savedTable));
-        if (savedTableList) setTableList(JSON.parse(savedTableList));
-        if (savedExams) setExamList(JSON.parse(savedExams));
-      } catch (error) {
-        console.error("Failed to load data", error);
-      }
-    };
-    loadAppData();
-  }, []);
+      const loadAppData = async () => {
+        try {
+          const savedTable = await AsyncStorage.getItem("user_table");
+          const savedTableList = await AsyncStorage.getItem("user_table_list");
+          const savedExams = await AsyncStorage.getItem("user_exams");
+
+          if (savedTable) {
+            setTable(JSON.parse(savedTable));
+          } else {
+            setTable([]);
+          }
+
+          if (savedTableList) {
+            setTableList(JSON.parse(savedTableList));
+          } else {
+            setTableList([{ label: "default", value: 1 }]);
+            setSelectedTable("default");
+          }
+
+          if (savedExams) {
+            setExamList(JSON.parse(savedExams));
+          } else {
+            setExamList([]);
+          }
+        } catch (error) {
+          console.error("Failed to load data", error);
+        }
+      };
+
+      loadAppData();
+    }, []),
+  );
 
   useEffect(() => {
     console.log("data has been saved");
@@ -401,9 +421,6 @@ const Timetable = ({ navigation }) => {
                             ห้อง: {item.room}
                           </Text>
                         </View>
-                        <TouchableOpacity onPress={() => handleDeleteSubject(day, item.id)} style={{justifyContent: 'center', padding: 5}}>
-                          <Feather name="trash-2" size={20} color="#FF7675" />
-                        </TouchableOpacity>
                       </View>
                       <TouchableOpacity
                         onPress={() => handleDeleteSubject(item.id)}

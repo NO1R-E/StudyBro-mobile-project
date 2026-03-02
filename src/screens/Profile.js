@@ -69,6 +69,8 @@ const Profile = () => {
     avatar: "",
   });
 
+  const [isLoaded, setIsLoaded] = useState(false);
+
   // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
   useEffect(() => {
     const loadProfile = async () => {
@@ -85,16 +87,19 @@ const Profile = () => {
   }, []);
 
   // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
-  useEffect(() => {
-    const saveProfile = async () => {
-      try {
-        await AsyncStorage.setItem("myProfile", JSON.stringify(profile));
-      } catch (e) {
-        console.error("Failed to save profile", e);
-      }
-    };
-    saveProfile();
-  }, [profile]);
+    useEffect(() => {
+      const loadProfile = async () => {
+        const saved = await AsyncStorage.getItem("myProfile");
+        if (saved) setProfile(JSON.parse(saved));
+        setIsLoaded(true);
+      };
+      loadProfile();
+    }, []);
+
+    useEffect(() => {
+      if (!isLoaded) return;
+      AsyncStorage.setItem("myProfile", JSON.stringify(profile));
+    }, [profile, isLoaded]);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -111,7 +116,7 @@ const Profile = () => {
   const handleClearData = () => {
     Alert.alert(
       "⚠️ ยืนยันการลบข้อมูล",
-      "การดำเนินการนี้จะลบตารางเรียน กิจกรรม และแผนการเรียนทั้งหมดของคุณ และไม่สามารถเรียกคืนได้ คุณแน่ใจหรือไม่?",
+      "ข้อมูลทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?",
       [
         { text: "ยกเลิก", style: "cancel" },
         {
@@ -121,11 +126,11 @@ const Profile = () => {
             try {
               await AsyncStorage.multiRemove([
                 "myProfile",
-                "myTasks",
                 "user_table",
                 "user_table_list",
                 "user_exams",
               ]);
+
               setProfile({
                 name: "",
                 faculty: "",
@@ -134,9 +139,14 @@ const Profile = () => {
                 studentId: "",
                 avatar: "",
               });
-              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว");
+
+              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว", [
+                {
+                  text: "ตกลง",
+                },
+              ]);
             } catch (e) {
-              console.error("Failed to clear profile data", e);
+              console.error("Failed to clear data", e);
             }
           },
         },
