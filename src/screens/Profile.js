@@ -675,9 +675,3 @@ const styles = StyleSheet.create({
 });
 
 export default Profile;
-
-// const handleLogout = async () => {
-//   await auth.signOut();
-//   await AsyncStorage.clear(); // Important: Resets the timestamp so the next user doesn't skip their fetch
-//   // Reset local states to default
-// };
