@@ -87,7 +87,7 @@ const Dashboard = ({ navigation }) => {
           console.error("Load Dashboard Data Failed", error);
         }
       };
-      fetchTasks();
+      // fetchTasks();
     }, []),
   );
 
