@@ -129,6 +129,7 @@ const Profile = () => {
                 "user_table",
                 "user_table_list",
                 "user_exams",
+                "myTasks"
               ]);
 
               setProfile({
