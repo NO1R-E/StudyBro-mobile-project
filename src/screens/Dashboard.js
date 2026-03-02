@@ -98,6 +98,7 @@ const Dashboard = ({ navigation }) => {
         setTasks([]);
         setUpcomingActivities([]);
       }
+      
 
       // ===== Profile =====
       if (savedProfile) {
@@ -132,10 +133,10 @@ const Dashboard = ({ navigation }) => {
     const startTimeLimit = getMinutesWithOffset(0); // Current time
     const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
 
-    console.log(
-      `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
-    );
-    console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    // console.log(
+    //   `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
+    // );
+    // console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
     const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
