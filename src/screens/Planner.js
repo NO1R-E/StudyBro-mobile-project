@@ -12,7 +12,7 @@ import { useCallback } from 'react';
 const Planner = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [activityName, setActivityName] = useState('');
-  const [category, setCategory] = useState('study'); 
+  const [category, setCategory] = useState('study');
   const [note, setNote] = useState('');
 
   const [activityDate, setActivityDate] = useState(new Date());
@@ -25,7 +25,7 @@ const Planner = () => {
 
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [filterCategory, setFilterCategory] = useState('all'); 
+  const [filterCategory, setFilterCategory] = useState('all');
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -93,7 +93,7 @@ const Planner = () => {
   const totalCount = tasks.length;
   const completedCount = tasks.filter(item => item.status === 'completed').length;
   const missedCount = tasks.filter(item => item.status === 'missed').length;
-  
+
   const completedPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const missedPercent = totalCount > 0 ? (missedCount / totalCount) * 100 : 0;
 
@@ -102,6 +102,13 @@ const Planner = () => {
 
   const handleSaveActivity = () => {
     if (activityName) {
+      // ✅ เช็คเวลา
+      if (startTime >= endTime) {
+        alert("เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด");
+        return;
+      }
+
+
       const endDateTime = new Date(activityDate);
       endDateTime.setHours(endTime.getHours());
       endDateTime.setMinutes(endTime.getMinutes());
@@ -122,12 +129,12 @@ const Planner = () => {
 
       setActivityName('');
       setCategory('study');
-      setNote(''); 
+      setNote('');
       setActivityDate(new Date());
       setStartTime(new Date());
       setEndTime(new Date(new Date().setHours(new Date().getHours() + 1)));
       setModalVisible(false);
-      setFilterCategory('all'); 
+      setFilterCategory('all');
     }
   };
 
@@ -142,14 +149,14 @@ const Planner = () => {
       "คุณแน่ใจหรือไม่ว่าต้องการลบกิจกรรมนี้?",
       [
         { text: "ยกเลิก", style: "cancel" },
-        { 
-          text: "ลบกิจกรรม", 
+        {
+          text: "ลบกิจกรรม",
           onPress: () => {
             setTasks(tasks.filter(task => task.id !== taskId));
             setDetailsModalVisible(false);
             setSelectedTask(null);
           },
-          style: "destructive" 
+          style: "destructive"
         }
       ]
     );
@@ -198,13 +205,13 @@ const Planner = () => {
             </View>
 
             <Text style={styles.label}>บันทึกข้อความ (Note)</Text>
-            <TextInput 
-              style={styles.textArea} 
-              placeholder="เพิ่มรายละเอียดกิจกรรม..." 
-              value={note} 
-              onChangeText={setNote} 
-              multiline={true} 
-              numberOfLines={3} 
+            <TextInput
+              style={styles.textArea}
+              placeholder="เพิ่มรายละเอียดกิจกรรม..."
+              value={note}
+              onChangeText={setNote}
+              multiline={true}
+              numberOfLines={3}
             />
 
             {showDatePicker && <DateTimePicker value={activityDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setActivityDate(d); }} />}
@@ -249,7 +256,7 @@ const Planner = () => {
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>สถานะ:</Text>
-                  <Text style={[styles.detailValue, { 
+                  <Text style={[styles.detailValue, {
                     color: selectedTask.status === 'completed' ? '#4CAF50' : selectedTask.status === 'missed' ? '#FF5252' : '#F57C00',
                     fontWeight: 'bold'
                   }]}>
@@ -352,9 +359,9 @@ const Planner = () => {
                 </View>
 
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={[styles.checklistTitle, 
-                    plan.status === 'completed' && { textDecorationLine: 'line-through', color: '#999' },
-                    plan.status === 'missed' && { color: '#FF5252' }
+                  <Text style={[styles.checklistTitle,
+                  plan.status === 'completed' && { textDecorationLine: 'line-through', color: '#999' },
+                  plan.status === 'missed' && { color: '#FF5252' }
                   ]}>
                     {plan.title}
                   </Text>
@@ -404,9 +411,9 @@ const styles = StyleSheet.create({
   progressText: { fontSize: 14, color: '#BDBDBD', fontWeight: 'bold' },
   progressBarBg: { height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, marginBottom: 10, flexDirection: 'row', overflow: 'hidden' },
   progressBarFill: { height: 6, backgroundColor: '#A5D6A7' },
-  progressBarMissed: { height: 6, backgroundColor: '#FF5252' }, 
+  progressBarMissed: { height: 6, backgroundColor: '#FF5252' },
   emptyFilteredContainer: { alignItems: 'center', paddingVertical: 20, gap: 20 },
-  emptySubText: { color: '#BEBABA', fontSize: 13, fontFamily: "Inter_400Regular" ,textAlign:'center' },
+  emptySubText: { color: '#BEBABA', fontSize: 13, fontFamily: "Inter_400Regular", textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContainer: { width: '85%', backgroundColor: '#fff', borderRadius: 20, padding: 25 },
   modalTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#E91E63', marginBottom: 20, textAlign: 'center' },

@@ -259,6 +259,24 @@ const Timetable = ({ navigation }) => {
   ];
 
   const handleUpdateExam = () => {
+    // ✅ เช็คว่ามีเวลาไหม
+    if (!editingExam.startTime || !editingExam.endTime) {
+      alert("กรุณาเลือกเวลาให้ครบ");
+      return;
+    }
+    // ✅ แปลง "09:00" → ชั่วโมง/นาที
+    const [startHour, startMinute] = editingExam.startTime.split(":").map(Number);
+    const [endHour, endMinute] = editingExam.endTime.split(":").map(Number);
+
+    const startTotal = startHour * 60 + startMinute;
+    const endTotal = endHour * 60 + endMinute;
+
+    // ✅ เช็คเวลาเริ่มต้องน้อยกว่าเวลาจบ
+    if (startTotal >= endTotal) {
+      alert("เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด");
+      return;
+    }
+
     const updatedExams = examList.map((ex) =>
       ex.id === editingExam.id ? editingExam : ex,
     );
@@ -589,15 +607,15 @@ const Timetable = ({ navigation }) => {
           </View>
         </ScrollView>
       )}
-     {/* 4. Modal ฟอร์ม (จัดการตารางเรียน/กลุ่ม) */}
+      {/* 4. Modal ฟอร์ม (จัดการตารางเรียน/กลุ่ม) */}
       <Modal visible={modalTableVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons 
-                name={mode === "class" ? "library-outline" : "calendar-outline"} 
-                size={24} 
-                color="#C7005C" 
+              <Ionicons
+                name={mode === "class" ? "library-outline" : "calendar-outline"}
+                size={24}
+                color="#C7005C"
               />
               <Text style={styles.modalTitle}>
                 {mode === "class" ? "จัดการกลุ่มตารางเรียน" : "จัดการตารางสอบ"}
@@ -610,10 +628,10 @@ const Timetable = ({ navigation }) => {
                 onPress={() => setAction("add")}
                 style={[styles.actionTab, action === "add" && styles.actionTabActive]}
               >
-                <Ionicons 
-                  name="add-circle" 
-                  size={18} 
-                  color={action === "add" ? "#FFF" : "#C7005C"} 
+                <Ionicons
+                  name="add-circle"
+                  size={18}
+                  color={action === "add" ? "#FFF" : "#C7005C"}
                 />
                 <Text style={[styles.actionTabText, action === "add" && styles.actionTabTextActive]}>
                   เพิ่มกลุ่ม
@@ -624,10 +642,10 @@ const Timetable = ({ navigation }) => {
                 onPress={() => setAction("delete")}
                 style={[styles.actionTab, action === "delete" && styles.actionTabActive]}
               >
-                <Ionicons 
-                  name="trash" 
-                  size={18} 
-                  color={action === "delete" ? "#FFF" : "#C7005C"} 
+                <Ionicons
+                  name="trash"
+                  size={18}
+                  color={action === "delete" ? "#FFF" : "#C7005C"}
                 />
                 <Text style={[styles.actionTabText, action === "delete" && styles.actionTabTextActive]}>
                   ลบกลุ่ม
@@ -684,7 +702,7 @@ const Timetable = ({ navigation }) => {
                   {
                     opacity:
                       (action === "add" && !newTableName) ||
-                      (action === "delete" && !selectedTable)
+                        (action === "delete" && !selectedTable)
                         ? 0.5
                         : 1,
                   },
