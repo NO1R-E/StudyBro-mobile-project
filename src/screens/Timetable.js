@@ -567,7 +567,7 @@ const Timetable = ({ navigation }) => {
               .filter((item) => item.table === selectedTable)
               .map((item) => (
                 <View key={item.id} style={styles.examCardMini}>
-                  <View style={{ flexDirection: "row", gap: 20 }}>
+                  <View style={{ flexDirection: "row", gap: 20 , justifyContent:'space-between' }}>
                     <View>
                       <Text style={styles.examValue}>
                         {item.examDate || "กรุณากรอกวันสอบ"}
