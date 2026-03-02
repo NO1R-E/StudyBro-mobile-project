@@ -18,7 +18,6 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
-// --- 1. Import ONLY what you need from your central config ---
 import { auth } from "../../firebaseConfig";
 import {
   createUserWithEmailAndPassword,
@@ -41,9 +40,6 @@ const Login = ({ navigation }) => {
     Inter_700Bold,
   });
 
-  // ==========================================
-  // GUEST MODE (Delete these 12 lines for Production)
-  // ==========================================
   const handleTestLogin = async () => {
     setLoading(true);
     try {

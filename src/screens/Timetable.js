@@ -23,6 +23,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
+import isOverlapping from "../helper/isOverlapping";
 
 const Timetable = ({ navigation }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -66,62 +67,102 @@ const Timetable = ({ navigation }) => {
 
   const [tableList, setTableList] = useState([{ label: "default", value: 1 }]);
   const [selectedTable, setSelectedTable] = useState("default");
-  // ข้อมูลจำลอง (Mock Data)
   const [table, setTable] = useState([]);
 
   const [newTableName, setNewTableName] = useState();
   const handleAddTable = () => {
     if (newTableName.trim() === "") return;
 
-    // 1. Create the new dropdown option
     const newOption = {
       label: newTableName,
       value: tableList.length + 1,
     };
 
-    // 2. Update the tableList state so the dropdown shows the new item
     setTableList([...tableList, newOption]);
 
-    // 3. Switch the view to the newly created table
     setSelectedTable(newTableName);
 
-    // 4. Reset and close modal
     setNewTableName("");
     setModalTableVisible(false);
   };
 
-  const handleAddSubject = () => {
+  const handleAddSubject = async () => {
     if (!subject.name || !subject.code) {
       Alert.alert("กรุณากรอกข้อมูล", "โปรดระบุชื่อวิชาและรหัสวิชา");
       return;
     }
 
-    if (startTime >= endTime) {
-      Alert.alert("เวลาไม่ถูกต้อง", "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด");
-      return;
-    }
-
-    const newEntry = {
-      ...subject,
-      start: formatTime(startTime),
-      end: formatTime(endTime),
-      id: Math.random().toString(),
-      table: selectedTable,
+    const newStartStr = formatTime(startTime);
+    const newEndStr = formatTime(endTime);
+    const currentDay = subject.day;
+    const executeAdd = () => {
+      const newEntry = {
+        ...subject,
+        start: newStartStr,
+        end: newEndStr,
+        id: Date.now().toString(),
+        table: selectedTable,
+      };
+      const updatedTable = [...table, newEntry];
+      setTable(updatedTable);
+      persistData(updatedTable, tableList, examList);
+      setModalSubjectVisible(false);
+      setSubject({
+        code: "",
+        name: "",
+        room: "",
+        start: "",
+        end: "",
+        day: "Monday",
+      });
     };
-    const updatedTable = [...table, newEntry];
 
-    setTable(updatedTable);
-    persistData(updatedTable, tableList, examList);
-    setModalSubjectVisible(false);
-    // reset form...
-    setSubject({
-      code: "",
-      name: "",
-      room: "",
-      start: "",
-      end: "",
-      day: "Monday", // Default fallback
-    });
+    try {
+      const hasClassOverlap = table.some(
+        (s) =>
+          s.day === currentDay &&
+          s.table === selectedTable &&
+          isOverlapping(newStartStr, newEndStr, s.start, s.end),
+      );
+      const savedActivitiesStr = await AsyncStorage.getItem("myTasks");
+      const allActivities = savedActivitiesStr
+        ? JSON.parse(savedActivitiesStr)
+        : [];
+      const activityConflict = allActivities.find((act) => {
+        const activityDay = new Date(act.dateString).toLocaleDateString(
+          "en-US",
+          { weekday: "long" },
+        );
+        return (
+          activityDay === currentDay &&
+          isOverlapping(
+            newStartStr,
+            newEndStr,
+            act.timeString.split(" - ")[0],
+            act.timeString.split(" - ")[1],
+          )
+        );
+      });
+
+      if (hasClassOverlap || activityConflict) {
+        const msg = hasClassOverlap
+          ? "เวลานี้มีวิชาอื่นอยู่แล้ว"
+          : `เวลานี้คุณติดกิจกรรม: ${activityConflict.title}`;
+
+        Alert.alert(
+          "เวลาซ้ำซ้อน",
+          `${msg} คุณต้องการเพิ่มวิชานี้ลงในตารางหรือไม่?`,
+          [
+            { text: "ยกเลิก", style: "cancel" },
+            { text: "เพิ่มต่อไป", onPress: () => executeAdd() },
+          ],
+        );
+      } else {
+        executeAdd();
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleDeleteSubject = (id) => {
@@ -131,13 +172,10 @@ const Timetable = ({ navigation }) => {
         text: "ลบ",
         style: "destructive",
         onPress: () => {
-          // Filter out the item with the matching ID
           const updatedTable = table.filter((item) => item.id !== id);
 
-          // 1. Update State
           setTable(updatedTable);
 
-          // 2. Persist to Local + Firestore with new Timestamp
           persistData(updatedTable, tableList, examList);
         },
       },
@@ -168,16 +206,16 @@ const Timetable = ({ navigation }) => {
           return existing
             ? { ...existing, section: c.sec }
             : {
-              id: c.id,
-              code: c.code,
-              name: c.name,
-              section: c.sec || "100",
-              examDate: "",
-              startTime: "",
-              endTime: "",
-              room: "",
-              table: c.table, // 👈 เก็บ semester ไว้ด้วย
-            };
+                id: c.id,
+                code: c.code,
+                name: c.name,
+                section: c.sec || "100",
+                examDate: "",
+                startTime: "",
+                endTime: "",
+                room: "",
+                table: c.table,
+              };
         });
     });
   }, [table, selectedTable]);
@@ -364,7 +402,7 @@ const Timetable = ({ navigation }) => {
       const timestamp = new Date().toISOString();
       console.log(`DEBUG: Saving data with timestamp: ${timestamp}`);
 
-      // 1. Update AsyncStorage
+      //Update AsyncStorage
       await AsyncStorage.multiSet([
         ["user_table", JSON.stringify(newTable)],
         ["user_table_list", JSON.stringify(newList)],
@@ -373,7 +411,7 @@ const Timetable = ({ navigation }) => {
       ]);
       console.log("DEBUG: AsyncStorage updated successfully.");
 
-      // 2. Update Firestore if online
+      //Update Firestore if online
       if (auth.currentUser) {
         const userDocRef = doc(
           db,
@@ -611,28 +649,44 @@ const Timetable = ({ navigation }) => {
             <View style={styles.actionTabContainer}>
               <TouchableOpacity
                 onPress={() => setAction("add")}
-                style={[styles.actionTab, action === "add" && styles.actionTabActive]}
+                style={[
+                  styles.actionTab,
+                  action === "add" && styles.actionTabActive,
+                ]}
               >
                 <Ionicons
                   name="add-circle"
                   size={18}
                   color={action === "add" ? "#FFF" : "#C7005C"}
                 />
-                <Text style={[styles.actionTabText, action === "add" && styles.actionTabTextActive]}>
+                <Text
+                  style={[
+                    styles.actionTabText,
+                    action === "add" && styles.actionTabTextActive,
+                  ]}
+                >
                   เพิ่มกลุ่ม
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setAction("delete")}
-                style={[styles.actionTab, action === "delete" && styles.actionTabActive]}
+                style={[
+                  styles.actionTab,
+                  action === "delete" && styles.actionTabActive,
+                ]}
               >
                 <Ionicons
                   name="trash"
                   size={18}
                   color={action === "delete" ? "#FFF" : "#C7005C"}
                 />
-                <Text style={[styles.actionTabText, action === "delete" && styles.actionTabTextActive]}>
+                <Text
+                  style={[
+                    styles.actionTabText,
+                    action === "delete" && styles.actionTabTextActive,
+                  ]}
+                >
                   ลบกลุ่ม
                 </Text>
               </TouchableOpacity>
@@ -660,7 +714,11 @@ const Timetable = ({ navigation }) => {
                       onValueChange={(itemValue) => setSelectedTable(itemValue)}
                       style={{ height: 50 }}
                     >
-                      <Picker.Item label="-- เลือกกลุ่มที่ต้องการลบ --" value={null} color="#B2BEC3" />
+                      <Picker.Item
+                        label="-- เลือกกลุ่มที่ต้องการลบ --"
+                        value={null}
+                        color="#B2BEC3"
+                      />
                       {tableList.map((item, index) => (
                         <Picker.Item
                           key={index}
@@ -674,7 +732,9 @@ const Timetable = ({ navigation }) => {
               ) : (
                 <View style={styles.placeholderBox}>
                   <Ionicons name="arrow-up-outline" size={30} color="#DDD" />
-                  <Text style={styles.placeholderText}>กรุณาเลือกรูปแบบการจัดการ</Text>
+                  <Text style={styles.placeholderText}>
+                    กรุณาเลือกรูปแบบการจัดการ
+                  </Text>
                 </View>
               )}
             </View>
@@ -692,7 +752,10 @@ const Timetable = ({ navigation }) => {
                         : 1,
                   },
                 ]}
-                disabled={(action === "add" && !newTableName) || (action === "delete" && !selectedTable)}
+                disabled={
+                  (action === "add" && !newTableName) ||
+                  (action === "delete" && !selectedTable)
+                }
                 onPress={() => {
                   if (action === "add") {
                     if (!newTableName || newTableName.trim() === "") return;
@@ -712,9 +775,15 @@ const Timetable = ({ navigation }) => {
                       Alert.alert("ขออภัย", "ไม่สามารถลบกลุ่มเริ่มต้นได้");
                       return;
                     }
-                    const updatedTableList = tableList.filter((item) => item.label !== selectedTable);
-                    const updatedTable = table.filter((item) => item.table !== selectedTable);
-                    const updatedExams = examList.filter((item) => item.table !== selectedTable);
+                    const updatedTableList = tableList.filter(
+                      (item) => item.label !== selectedTable,
+                    );
+                    const updatedTable = table.filter(
+                      (item) => item.table !== selectedTable,
+                    );
+                    const updatedExams = examList.filter(
+                      (item) => item.table !== selectedTable,
+                    );
                     setTableList(updatedTableList);
                     setTable(updatedTable);
                     setExamList(updatedExams);
@@ -878,17 +947,12 @@ const Timetable = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-
-            <Text style={styles.modalTitle}>
-              แก้ไขข้อมูลสอบ
-            </Text>
+            <Text style={styles.modalTitle}>แก้ไขข้อมูลสอบ</Text>
             <TextInput
               placeholder="ห้องสอบ"
               style={styles.input}
               value={editingExam?.room}
-              onChangeText={(t) =>
-                setEditingExam({ ...editingExam, room: t })
-              }
+              onChangeText={(t) => setEditingExam({ ...editingExam, room: t })}
             />
 
             {/* วันที่สอบ */}
@@ -988,7 +1052,6 @@ const Timetable = ({ navigation }) => {
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
             </View>
-
           </View>
         </View>
       </Modal>
