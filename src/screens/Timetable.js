@@ -589,159 +589,152 @@ const Timetable = ({ navigation }) => {
           </View>
         </ScrollView>
       )}
-      {/* 4. Modal ฟอร์ม (จัดการตารางเรียน/กลุ่ม) */}
-      <Modal visible={modalTableVisible} animationType="slide" transparent>
+     {/* 4. Modal ฟอร์ม (จัดการตารางเรียน/กลุ่ม) */}
+      <Modal visible={modalTableVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {mode === "class" ? "จัดการกลุ่มตารางเรียน" : "จัดการตารางสอบ"}
-            </Text>
+            <View style={styles.modalHeader}>
+              <Ionicons 
+                name={mode === "class" ? "library-outline" : "calendar-outline"} 
+                size={24} 
+                color="#C7005C" 
+              />
+              <Text style={styles.modalTitle}>
+                {mode === "class" ? "จัดการกลุ่มตารางเรียน" : "จัดการตารางสอบ"}
+              </Text>
+            </View>
 
-            {/* ส่วนเลือก Action: Add หรือ Delete */}
-            <View
-              style={{
-                flexDirection: "row",
-                marginBottom: 15,
-                justifyContent: "center",
-                gap: 20,
-              }}
-            >
+            {/* ส่วนเลือก Action: Segmented Tab Style */}
+            <View style={styles.actionTabContainer}>
               <TouchableOpacity
                 onPress={() => setAction("add")}
-                style={{ flexDirection: "row", alignItems: "center" }}
+                style={[styles.actionTab, action === "add" && styles.actionTabActive]}
               >
-                <Text style={{ fontSize: 18 }}>
-                  {action === "add" ? "🔘" : "⚪"}
-                </Text>
-                <Text style={[styles.classlabel, { marginLeft: 5 }]}>
-                  เพิ่มกลุ่มใหม่
+                <Ionicons 
+                  name="add-circle" 
+                  size={18} 
+                  color={action === "add" ? "#FFF" : "#C7005C"} 
+                />
+                <Text style={[styles.actionTabText, action === "add" && styles.actionTabTextActive]}>
+                  เพิ่มกลุ่ม
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setAction("delete")}
-                style={{ flexDirection: "row", alignItems: "center" }}
+                style={[styles.actionTab, action === "delete" && styles.actionTabActive]}
               >
-                <Text style={{ fontSize: 18 }}>
-                  {action === "delete" ? "🔘" : "⚪"}
-                </Text>
-                <Text style={[styles.classlabel, { marginLeft: 5 }]}>
+                <Ionicons 
+                  name="trash" 
+                  size={18} 
+                  color={action === "delete" ? "#FFF" : "#C7005C"} 
+                />
+                <Text style={[styles.actionTabText, action === "delete" && styles.actionTabTextActive]}>
                   ลบกลุ่ม
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Content ตาม Action ที่เลือก */}
-            <View style={{ minHeight: 100, justifyContent: "center" }}>
+            {/* Content Area */}
+            <View style={styles.modalBody}>
               {action === "add" ? (
-                <View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>ชื่อกลุ่มใหม่</Text>
                   <TextInput
-                    placeholder="ชื่อกลุ่มใหม่ (เช่น Semester 1/67)"
+                    placeholder="เช่น Semester 1/67"
                     value={newTableName}
                     onChangeText={setNewTableName}
-                    style={styles.input}
+                    style={styles.modalInput}
+                    placeholderTextColor="#B2BEC3"
                   />
                 </View>
               ) : action === "delete" ? (
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: "#DDD",
-                    borderRadius: 8,
-                    overflow: "hidden",
-                  }}
-                >
-                  <Picker
-                    selectedValue={selectedTable}
-                    onValueChange={(itemValue) => setSelectedTable(itemValue)}
-                  >
-                    <Picker.Item
-                      label="-- เลือกกลุ่มที่ต้องการลบ --"
-                      value={null}
-                    />
-                    {tableList.map((item, index) => (
-                      <Picker.Item
-                        key={index}
-                        label={item.label}
-                        value={item.label}
-                      />
-                    ))}
-                  </Picker>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>เลือกกลุ่มที่ต้องการลบ</Text>
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={selectedTable}
+                      onValueChange={(itemValue) => setSelectedTable(itemValue)}
+                      style={{ height: 50 }}
+                    >
+                      <Picker.Item label="-- เลือกกลุ่มที่ต้องการลบ --" value={null} color="#B2BEC3" />
+                      {tableList.map((item, index) => (
+                        <Picker.Item
+                          key={index}
+                          label={item.label}
+                          value={item.label}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
                 </View>
               ) : (
-                <Text style={{ textAlign: "center", color: "#636E72" }}>
-                  กรุณาเลือกรูปแบบการจัดการ
-                </Text>
+                <View style={styles.placeholderBox}>
+                  <Ionicons name="arrow-up-outline" size={30} color="#DDD" />
+                  <Text style={styles.placeholderText}>กรุณาเลือกรูปแบบการจัดการ</Text>
+                </View>
               )}
             </View>
 
-            {/* ปุ่มยืนยันการทำงาน */}
-            <TouchableOpacity
-              style={[
-                styles.saveBtn,
-                {
-                  marginTop: 20,
-                  opacity:
-                    (action === "add" && !newTableName) ||
+            {/* ปุ่มยืนยันและยกเลิก */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmBtn,
+                  {
+                    opacity:
+                      (action === "add" && !newTableName) ||
                       (action === "delete" && !selectedTable)
-                      ? 0.5
-                      : 1,
-                },
-              ]}
-              onPress={() => {
-                if (action === "add") {
-                  if (!newTableName || newTableName.trim() === "") return;
-
-                  const newOption = {
-                    label: newTableName,
-                    value: tableList.length + 1,
-                  };
-                  const updatedList = [...tableList, newOption];
-                  setTableList(updatedList);
-                  setSelectedTable(newTableName);
-                  setNewTableName("");
-                  persistData(table, updatedList, examList);
-                }
-
-                if (action === "delete") {
-                  if (!selectedTable || selectedTable === "default") {
-                    Alert.alert("ขออภัย", "ไม่สามารถลบกลุ่มเริ่มต้นได้");
-                    return;
+                        ? 0.5
+                        : 1,
+                  },
+                ]}
+                disabled={(action === "add" && !newTableName) || (action === "delete" && !selectedTable)}
+                onPress={() => {
+                  if (action === "add") {
+                    if (!newTableName || newTableName.trim() === "") return;
+                    const newOption = {
+                      label: newTableName,
+                      value: tableList.length + 1,
+                    };
+                    const updatedList = [...tableList, newOption];
+                    setTableList(updatedList);
+                    setSelectedTable(newTableName);
+                    setNewTableName("");
+                    persistData(table, updatedList, examList);
                   }
 
-                  const updatedTableList = tableList.filter(
-                    (item) => item.label !== selectedTable,
-                  );
-                  const updatedTable = table.filter(
-                    (item) => item.table !== selectedTable,
-                  );
-                  const updatedExams = examList.filter(
-                    (item) => item.table !== selectedTable,
-                  );
+                  if (action === "delete") {
+                    if (!selectedTable || selectedTable === "default") {
+                      Alert.alert("ขออภัย", "ไม่สามารถลบกลุ่มเริ่มต้นได้");
+                      return;
+                    }
+                    const updatedTableList = tableList.filter((item) => item.label !== selectedTable);
+                    const updatedTable = table.filter((item) => item.table !== selectedTable);
+                    const updatedExams = examList.filter((item) => item.table !== selectedTable);
+                    setTableList(updatedTableList);
+                    setTable(updatedTable);
+                    setExamList(updatedExams);
+                    setSelectedTable("default");
+                    persistData(updatedTable, updatedTableList, updatedExams);
+                  }
+                  setModalTableVisible(false);
+                  setAction(null);
+                }}
+              >
+                <Text style={styles.confirmBtnText}>ยืนยันการทำรายการ</Text>
+              </TouchableOpacity>
 
-                  setTableList(updatedTableList);
-                  setTable(updatedTable);
-                  setExamList(updatedExams);
-                  setSelectedTable("default");
-                  persistData(updatedTable, updatedTableList, updatedExams);
-                }
-                setModalTableVisible(false);
-                setAction(null); // Reset action for next time
-              }}
-            >
-              <Text style={styles.saveBtnText}>ยืนยันการทำรายการ</Text>
-            </TouchableOpacity>
-
-            {/* ปุ่มยกเลิก */}
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => {
-                setModalTableVisible(false);
-                setAction(null);
-              }}
-            >
-              <Text style={styles.cancelBtnText}>ยกเลิก</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => {
+                  setModalTableVisible(false);
+                  setAction(null);
+                }}
+              >
+                <Text style={styles.closeBtnText}>ยกเลิก</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1151,6 +1144,130 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    borderRadius: 30,
+    padding: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    gap: 10,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: "#C7005C",
+  },
+  actionTabContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F1F2F6",
+    borderRadius: 15,
+    padding: 5,
+    marginBottom: 0,
+  },
+  actionTab: {
+    flex: 1,
+    flexDirection: "row",
+    height: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 12,
+  },
+  actionTabActive: {
+    backgroundColor: "#C7005C",
+  },
+  actionTabText: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: "#C7005C",
+    marginLeft: 8,
+  },
+  actionTabTextActive: {
+    color: "#FFF",
+    fontFamily: "Inter_700Bold",
+  },
+  modalBody: {
+    minHeight: 120,
+    justifyContent: "center",
+  },
+  inputGroup: {
+    gap: 10,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#9B7B8E",
+    marginLeft: 5,
+  },
+  modalInput: {
+    backgroundColor: "#FFF",
+    borderWidth: 1.5,
+    borderColor: "#FFDAE0",
+    borderRadius: 15,
+    height: 55,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: "#333",
+  },
+  pickerWrapper: {
+    borderWidth: 1.5,
+    borderColor: "#FFDAE0",
+    borderRadius: 15,
+    overflow: "hidden",
+    backgroundColor: "#FFF",
+  },
+  placeholderBox: {
+    alignItems: "center",
+    gap: 10,
+  },
+  placeholderText: {
+    color: "#B2BEC3",
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  modalFooter: {
+    marginTop: 10,
+    gap: 0,
+  },
+  confirmBtn: {
+    backgroundColor: "#C7005C",
+    height: 55,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 2,
+  },
+  confirmBtnText: {
+    color: "#FFF",
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+  },
+  closeBtn: {
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeBtnText: {
+    color: "#9B7B8E",
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
   },
 });
 
