@@ -52,7 +52,7 @@ const Dashboard = ({ navigation }) => {
   //   calculateUpcomingExams();
   //   calculateUpcomingActivities();
   // }, []);
- 
+
   const loadData = async () => {
     try {
       const savedTable = await AsyncStorage.getItem("user_table");
@@ -114,7 +114,7 @@ const Dashboard = ({ navigation }) => {
       loadData();
     }, []),
   );
-  
+
   const getMinutesWithOffset = (offsetHours = 0) => {
     const now = new Date();
     // We add the offset and set minutes to 0 if you want to check "Top of the hour"
@@ -156,7 +156,7 @@ const Dashboard = ({ navigation }) => {
 
     const result = todayClasses[0] || null;
     setNextClass(result);
-    // console.log("Next class found:", result);  
+    // console.log("Next class found:", result);
   };
 
   // คำนวณวันสอบที่ใกล้จะถึง
@@ -499,31 +499,110 @@ const Dashboard = ({ navigation }) => {
         )}
       </View>
 
+      {/* วางแผนกิจกรรม */}
       <View style={styles.card}>
-        <View style={{ flexDirection: "row" }}>
-          <Feather name="clipboard" size={30} color="#FFAAC9" />
-          <Text style={styles.sectionTitle}>วางแผนกิจกรรม</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            marginBottom: 15,
+            alignItems: "center",
+          }}
+        >
+          <Feather name="clipboard" size={26} color="#C7005C" />
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: "#C7005C",
+                borderLeftColor: "#C7005C",
+                borderLeftWidth: 4,
+                paddingLeft: 10,
+                marginLeft: 10,
+              },
+            ]}
+          >
+            วางแผนกิจกรรม
+          </Text>
         </View>
 
         {upcomingActivities.length > 0 ? (
           upcomingActivities.map((activity) => (
-            <View key={activity.id} style={styles.examItem}>
-              <Text style={styles.examDate}>
-                {activity.dateString} เวลา {activity.timeString.split("-")[0]}
+            <View
+              key={activity.id}
+              style={{
+                backgroundColor: "#FDF2F8",
+                borderColor: "#FCCEE8",
+                borderWidth: 2,
+                borderRadius: 12,
+                padding: 15,
+                marginBottom: 10,
+              }}
+            >
+              <View style={styles.cardHeader}>
+                <View style={[styles.tag, { backgroundColor: "#EA3287" }]}>
+                  <Text style={styles.tagText}>Activity</Text>
+                </View>
+                <Text style={{ color: "#C7005C", fontWeight: "600" }}>
+                  {activity.dateString}
+                </Text>
+              </View>
+
+              <Text
+                style={{
+                  color: "#EA3287",
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  marginVertical: 5,
+                }}
+              >
+                {activity.title}
               </Text>
-              <Text style={styles.examName}>{activity.title}</Text>
-              <Text style={styles.examName}>
-                <Text style={styles.examDate}>
-                  <Entypo name="location-pin" size={24} color="FFAAC9" />
-                </Text>{" "}
-                {activity.location}
-              </Text>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <View style={styles.locationRow}>
+                  <Ionicons name="location" size={16} color="#EA3287" />
+                  <Text style={{ color: "#EA3287", fontSize: 15 }}>
+                    {" "}
+                    สถานที่: {activity.location || "ไม่ได้ระบุ"}
+                  </Text>
+                </View>
+
+                <Text
+                  style={{ color: "#EA3287", fontSize: 14, fontWeight: "600" }}
+                >
+                  {activity.timeString.split("-")[0]} น.
+                </Text>
+              </View>
             </View>
           ))
         ) : (
-          <Text style={[styles.roomText, { textAlign: "center", margin: 10 }]}>
-            ไม่มีกิจกรรมในสัปดาห์นี้
-          </Text>
+          <View
+            style={{
+              backgroundColor: "#FDF2F8",
+              borderColor: "#FCCEE8",
+              borderWidth: 2,
+              borderRadius: 12,
+              padding: 20,
+              alignItems: "center",
+            }}
+          >
+            <Feather name="calendar" size={24} color="#C7005C" />
+            <Text
+              style={{
+                color: "#C7005C",
+                marginTop: 5,
+                fontFamily: "Inter_400Regular",
+              }}
+            >
+              ไม่มีกิจกรรมในสัปดาห์นี้
+            </Text>
+          </View>
         )}
       </View>
     </ScrollView>
