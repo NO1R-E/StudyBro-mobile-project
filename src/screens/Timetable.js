@@ -1,6 +1,15 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  TextInput,
+  Alert,
+  Platform,
+} from "react-native";
 import CustomDropdown from "../components/CustomDropdown";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
@@ -12,8 +21,13 @@ import {
 import Feather from "@expo/vector-icons/Feather";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db, auth } from "../../firebaseConfig";
 
 const Timetable = ({ navigation }) => {
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const user = auth.currentUser;
+  const getUserDocRef = () => doc(db, "users", user.uid, "timetable", "data");
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
 
   const [action, setAction] = useState();
@@ -90,8 +104,10 @@ const Timetable = ({ navigation }) => {
       id: Math.random().toString(),
       table: selectedTable,
     };
+    const updatedTable = [...table, newEntry];
 
-    setTable([...table, newEntry]);
+    setTable(updatedTable);
+    persistData(updatedTable, tableList, examList);
     setModalSubjectVisible(false);
     // reset form...
     setSubject({
@@ -113,7 +129,12 @@ const Timetable = ({ navigation }) => {
         onPress: () => {
           // Filter out the item with the matching ID
           const updatedTable = table.filter((item) => item.id !== id);
+
+          // 1. Update State
           setTable(updatedTable);
+
+          // 2. Persist to Local + Firestore with new Timestamp
+          persistData(updatedTable, tableList, examList);
         },
       },
     ]);
@@ -143,16 +164,16 @@ const Timetable = ({ navigation }) => {
           return existing
             ? { ...existing, section: c.sec }
             : {
-              id: c.id,
-              code: c.code,
-              name: c.name,
-              section: c.sec || "100",
-              examDate: "",
-              startTime: "",
-              endTime: "",
-              room: "",
-              table: c.table, // 👈 เก็บ semester ไว้ด้วย
-            };
+                id: c.id,
+                code: c.code,
+                name: c.name,
+                section: c.sec || "100",
+                examDate: "",
+                startTime: "",
+                endTime: "",
+                room: "",
+                table: c.table, // 👈 เก็บ semester ไว้ด้วย
+              };
         });
     });
   }, [table, selectedTable]);
@@ -234,84 +255,151 @@ const Timetable = ({ navigation }) => {
   ];
 
   const handleUpdateExam = () => {
-    setExamList((prev) =>
-      prev.map((ex) => (ex.id === editingExam.id ? editingExam : ex)),
+    const updatedExams = examList.map((ex) =>
+      ex.id === editingExam.id ? editingExam : ex,
     );
+
+    setExamList(updatedExams);
+    persistData(table, tableList, updatedExams); // Sync update
+
     setModalExamEditVisible(false);
     setEditingExam(null);
   };
 
-  const handleMainAddPress = () => {
-    if (mode === "class") {
-      setModalTableVisible(true); // Open Group/Semester management
-    } else {
-      setModalExamVisible(true); // Open Exam date management
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      console.log("data has been load (focus)");
-
-      const loadAppData = async () => {
-        try {
-          const savedTable = await AsyncStorage.getItem("user_table");
-          const savedTableList = await AsyncStorage.getItem("user_table_list");
-          const savedExams = await AsyncStorage.getItem("user_exams");
-
-          if (savedTable) {
-            setTable(JSON.parse(savedTable));
-          } else {
-            setTable([]);
-          }
-
-          if (savedTableList) {
-            setTableList(JSON.parse(savedTableList));
-          } else {
-            setTableList([{ label: "default", value: 1 }]);
-            setSelectedTable("default");
-          }
-
-          if (savedExams) {
-            setExamList(JSON.parse(savedExams));
-          } else {
-            setExamList([]);
-          }
-        } catch (error) {
-          console.error("Failed to load data", error);
-        }
-      };
-
-      loadAppData();
-    }, []),
-  );
-
   useEffect(() => {
-    console.log("data has been saved");
-    const saveAppData = async () => {
+    const loadAndSync = async () => {
       try {
-        await AsyncStorage.setItem("user_table", JSON.stringify(table));
-        await AsyncStorage.setItem(
-          "user_table_list",
-          JSON.stringify(tableList),
-        );
-        await AsyncStorage.setItem("user_exams", JSON.stringify(examList));
+        console.log("DEBUG: Starting Sync Process...");
+
+        const [localT, localL, localE, localTS] = await Promise.all([
+          AsyncStorage.getItem("user_table"),
+          AsyncStorage.getItem("user_table_list"),
+          AsyncStorage.getItem("user_exams"),
+          AsyncStorage.getItem("last_updated"),
+        ]);
+
+        console.log(`DEBUG: Local Timestamp found: ${localTS || "None"}`);
+
+        if (localT) setTable(JSON.parse(localT));
+        if (localL) setTableList(JSON.parse(localL));
+        if (localE) setExamList(JSON.parse(localE));
+
+        if (auth.currentUser) {
+          console.log(
+            `DEBUG: User logged in (${auth.currentUser.uid}). Checking Firestore...`,
+          );
+          const userDocRef = doc(
+            db,
+            "users",
+            auth.currentUser.uid,
+            "timetable",
+            "data",
+          );
+          const docSnap = await getDoc(userDocRef);
+
+          if (docSnap.exists()) {
+            const cloudData = docSnap.data();
+            const cloudTS = cloudData.lastUpdated;
+            console.log(`DEBUG: Cloud Timestamp found: ${cloudTS}`);
+
+            // Comparison Logic
+            const isCloudNewer =
+              !localTS || new Date(cloudTS) > new Date(localTS);
+
+            if (isCloudNewer) {
+              console.log("DEBUG: Cloud is newer. Overwriting local data...");
+              setTable(cloudData.table || []);
+              setTableList(cloudData.tableList || []);
+              setExamList(cloudData.examList || []);
+
+              await AsyncStorage.multiSet([
+                ["user_table", JSON.stringify(cloudData.table)],
+                ["user_table_list", JSON.stringify(cloudData.tableList)],
+                ["user_exams", JSON.stringify(cloudData.examList)],
+                ["last_updated", cloudTS],
+              ]);
+            } else {
+              console.log(
+                "DEBUG: Local data is already up to date. Skipping Cloud fetch.",
+              );
+            }
+          } else {
+            console.log("DEBUG: No data found in Firestore for this user.");
+          }
+        } else {
+          console.log("DEBUG: No user logged in. Skipping Firestore sync.");
+        }
       } catch (error) {
-        console.error("Failed to save data", error);
+        console.error("DEBUG ERROR:", error);
       }
     };
-    saveAppData();
-  }, [table, tableList, examList]);
+
+    loadAndSync();
+  }, []);
+
+  const persistData = async (newTable, newList, newExams) => {
+    try {
+      const timestamp = new Date().toISOString();
+      console.log(`DEBUG: Saving data with timestamp: ${timestamp}`);
+
+      // 1. Update AsyncStorage
+      await AsyncStorage.multiSet([
+        ["user_table", JSON.stringify(newTable)],
+        ["user_table_list", JSON.stringify(newList)],
+        ["user_exams", JSON.stringify(newExams)],
+        ["last_updated", timestamp],
+      ]);
+      console.log("DEBUG: AsyncStorage updated successfully.");
+
+      // 2. Update Firestore if online
+      if (auth.currentUser) {
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "timetable",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          {
+            table: newTable,
+            tableList: newList,
+            examList: newExams,
+            lastUpdated: timestamp,
+          },
+          { merge: true },
+        );
+        console.log("DEBUG: Firestore updated successfully.");
+      }
+    } catch (error) {
+      console.error("DEBUG PERSISTENCE ERROR:", error);
+    }
+  };
 
   return (
     <View style={styles.container}>
       {/* 1. Toggle ระหว่าง ตารางเรียน / ตารางสอบ */}
       <View style={styles.toggleContainer}>
-        <TouchableOpacity style={[styles.toggleBtn, mode === "class" && styles.activeBtn]} onPress={() => setMode("class")}>
-          <Text style={mode === "class" ? styles.activeText : styles.inactiveText}>Time-table</Text>
+        <TouchableOpacity
+          style={[styles.toggleBtn, mode === "class" && styles.activeBtn]}
+          onPress={() => setMode("class")}
+        >
+          <Text
+            style={mode === "class" ? styles.activeText : styles.inactiveText}
+          >
+            Time-table
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.toggleBtn, mode === "exam" && styles.activeBtn]} onPress={() => setMode("exam")}>
-          <Text style={mode === "exam" ? styles.activeText : styles.inactiveText}>Exam-Schedule</Text>
+        <TouchableOpacity
+          style={[styles.toggleBtn, mode === "exam" && styles.activeBtn]}
+          onPress={() => setMode("exam")}
+        >
+          <Text
+            style={mode === "exam" ? styles.activeText : styles.inactiveText}
+          >
+            Exam-Schedule
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -331,7 +419,10 @@ const Timetable = ({ navigation }) => {
       </View>
 
       {mode === "class" && (
-        <ScrollView style={styles.listArea} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.listArea}
+          showsVerticalScrollIndicator={false}
+        >
           {days.map((day) => {
             const dailyClasses = table.filter(
               (c) => c.day === day && c.table === selectedTable,
@@ -439,7 +530,10 @@ const Timetable = ({ navigation }) => {
 
       {/* ================= โหมดตารางสอบ ================= */}
       {mode === "exam" && (
-        <ScrollView style={styles.containerExam} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.containerExam}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.examCard}>
             <View
               style={{ flexDirection: "row", justifyContent: "space-between" }}
@@ -523,7 +617,6 @@ const Timetable = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setAction("delete")}
                 style={{ flexDirection: "row", alignItems: "center" }}
-
               >
                 <Text style={{ fontSize: 18 }}>
                   {action === "delete" ? "🔘" : "⚪"}
@@ -586,7 +679,7 @@ const Timetable = ({ navigation }) => {
                   marginTop: 20,
                   opacity:
                     (action === "add" && !newTableName) ||
-                      (action === "delete" && !selectedTable)
+                    (action === "delete" && !selectedTable)
                       ? 0.5
                       : 1,
                 },
@@ -599,9 +692,11 @@ const Timetable = ({ navigation }) => {
                     label: newTableName,
                     value: tableList.length + 1,
                   };
-                  setTableList([...tableList, newOption]);
+                  const updatedList = [...tableList, newOption];
+                  setTableList(updatedList);
                   setSelectedTable(newTableName);
                   setNewTableName("");
+                  persistData(table, updatedList, examList);
                 }
 
                 if (action === "delete") {
@@ -610,21 +705,22 @@ const Timetable = ({ navigation }) => {
                     return;
                   }
 
-                  setTableList((prev) =>
-                    prev.filter((item) => item.label !== selectedTable),
+                  const updatedTableList = tableList.filter(
+                    (item) => item.label !== selectedTable,
+                  );
+                  const updatedTable = table.filter(
+                    (item) => item.table !== selectedTable,
+                  );
+                  const updatedExams = examList.filter(
+                    (item) => item.table !== selectedTable,
                   );
 
-                  setTable((prev) =>
-                    prev.filter((item) => item.table !== selectedTable),
-                  );
-
-                  setExamList((prev) =>
-                    prev.filter((item) => item.table !== selectedTable)
-                  );
-
+                  setTableList(updatedTableList);
+                  setTable(updatedTable);
+                  setExamList(updatedExams);
                   setSelectedTable("default");
+                  persistData(updatedTable, updatedTableList, updatedExams);
                 }
-
                 setModalTableVisible(false);
                 setAction(null); // Reset action for next time
               }}
@@ -779,7 +875,10 @@ const Timetable = ({ navigation }) => {
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleAddSubject}>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleAddSubject}
+              >
                 <Text style={styles.saveBtnText}>บันทึก</Text>
               </TouchableOpacity>
             </View>
@@ -859,8 +958,19 @@ const Timetable = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9E2EB" },
-  toggleContainer: { flexDirection: "row", margin: 15, backgroundColor: "#ffffff", borderRadius: 25, padding: 5 },
-  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 25 },
+  toggleContainer: {
+    flexDirection: "row",
+    margin: 15,
+    backgroundColor: "#ffffff",
+    borderRadius: 25,
+    padding: 5,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 25,
+  },
   activeBtn: { backgroundColor: "#FFAAC9", elevation: 8 },
   activeText: {
     color: "#FFF",
