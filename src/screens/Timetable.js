@@ -29,7 +29,7 @@ const Timetable = ({ navigation }) => {
   const user = auth.currentUser;
   const getUserDocRef = () => doc(db, "users", user.uid, "timetable", "data");
   const [mode, setMode] = useState("class"); // 'class' หรือ 'exam'
-
+  const [pickerMode, setPickerMode] = useState(null);
   const [action, setAction] = useState();
   const [modalTableVisible, setModalTableVisible] = useState(false);
   const [modalSubjectVisible, setModalSubjectVisible] = useState(false);
@@ -49,6 +49,10 @@ const Timetable = ({ navigation }) => {
     Inter_400Regular,
     Inter_700Bold,
   });
+
+  const openPicker = (mode) => {
+    setPickerMode(mode);
+  };
 
   const [subject, setSubject] = useState({
     code: "",
@@ -164,16 +168,16 @@ const Timetable = ({ navigation }) => {
           return existing
             ? { ...existing, section: c.sec }
             : {
-                id: c.id,
-                code: c.code,
-                name: c.name,
-                section: c.sec || "100",
-                examDate: "",
-                startTime: "",
-                endTime: "",
-                room: "",
-                table: c.table, // 👈 เก็บ semester ไว้ด้วย
-              };
+              id: c.id,
+              code: c.code,
+              name: c.name,
+              section: c.sec || "100",
+              examDate: "",
+              startTime: "",
+              endTime: "",
+              room: "",
+              table: c.table, // 👈 เก็บ semester ไว้ด้วย
+            };
         });
     });
   }, [table, selectedTable]);
@@ -679,7 +683,7 @@ const Timetable = ({ navigation }) => {
                   marginTop: 20,
                   opacity:
                     (action === "add" && !newTableName) ||
-                    (action === "delete" && !selectedTable)
+                      (action === "delete" && !selectedTable)
                       ? 0.5
                       : 1,
                 },
@@ -780,22 +784,6 @@ const Timetable = ({ navigation }) => {
               value={subject.room}
               onChangeText={(t) => setSubject({ ...subject, room: t })}
             />
-
-            {/* <View style={styles.row}>
-              <TextInput
-                placeholder="เริ่ม (00:00)"
-                style={[styles.input, { flex: 1, marginRight: 5 }]}
-                value={subject.start}
-                onChangeText={(t) => setSubject({ ...subject, start: t })}
-              />
-              <TextInput
-                placeholder="จบ (00:00)"
-                style={[styles.input, { flex: 1 }]}
-                value={subject.end}
-                onChangeText={(t) => setSubject({ ...subject, end: t })}
-              />
-            </View> */}
-
             <View style={{ flexDirection: "row" }}>
               <View style={{ flex: 1, marginRight: 5 }}>
                 <Text style={styles.label}>เวลาเริ่ม</Text>
@@ -886,7 +874,7 @@ const Timetable = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL for edit Exam */}
+      {/* MODAL for edit EXAM */}
       <Modal
         visible={modalExamEditVisible}
         animationType="slide"
@@ -894,52 +882,107 @@ const Timetable = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+
             <Text style={styles.modalTitle}>
-              แก้ไขวันสอบ: {editingExam?.name}
+              แก้ไขข้อมูลสอบ
             </Text>
-
-            <TextInput
-              placeholder="วันที่สอบ (เช่น 12 มี.ค. 67)"
-              style={styles.input}
-              value={editingExam?.examDate}
-              onChangeText={(text) =>
-                setEditingExam({ ...editingExam, examDate: text })
-              }
-            />
-
-            <TextInput
-              placeholder="เวลาเริ่ม (เช่น 09:00)"
-              style={styles.input}
-              value={editingExam?.startTime}
-              onChangeText={(text) =>
-                setEditingExam({ ...editingExam, startTime: text })
-              }
-            />
-
-            <TextInput
-              placeholder="เวลาสิ้นสุด (เช่น 12:00)"
-              style={styles.input}
-              value={editingExam?.endTime}
-              onChangeText={(text) =>
-                setEditingExam({ ...editingExam, endTime: text })
-              }
-            />
-
             <TextInput
               placeholder="ห้องสอบ"
               style={styles.input}
               value={editingExam?.room}
-              onChangeText={(text) =>
-                setEditingExam({ ...editingExam, room: text })
+              onChangeText={(t) =>
+                setEditingExam({ ...editingExam, room: t })
               }
             />
+
+            {/* วันที่สอบ */}
+            <Text style={styles.label}>วันที่สอบ</Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => openPicker("date")}
+            >
+              <Text style={styles.pickerText}>
+                {editingExam?.examDate || "เลือกวันที่"}
+              </Text>
+              <Ionicons name="calendar-outline" size={20} color="gray" />
+            </TouchableOpacity>
+
+            {/* เวลาเริ่ม + สิ้นสุด */}
+            <View style={{ flexDirection: "row", marginTop: 10 }}>
+              <View style={{ flex: 1, marginRight: 5 }}>
+                <Text style={styles.label}>เวลาเริ่ม</Text>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => openPicker("startTime")}
+                >
+                  <Text style={styles.pickerText}>
+                    {editingExam?.startTime || "เลือกเวลา"}
+                  </Text>
+                  <Ionicons name="time-outline" size={20} color="gray" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 5 }}>
+                <Text style={styles.label}>เวลาสิ้นสุด</Text>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => openPicker("endTime")}
+                >
+                  <Text style={styles.pickerText}>
+                    {editingExam?.endTime || "เลือกเวลา"}
+                  </Text>
+                  <Ionicons name="time-outline" size={20} color="gray" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* DateTimePicker */}
+            {pickerMode && (
+              <DateTimePicker
+                value={new Date()}
+                mode={pickerMode === "date" ? "date" : "time"}
+                is24Hour
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setPickerMode(null);
+                  if (!selectedDate) return;
+
+                  if (pickerMode === "date") {
+                    setEditingExam({
+                      ...editingExam,
+                      examDate: selectedDate.toLocaleDateString("th-TH"),
+                    });
+                  }
+
+                  if (pickerMode === "startTime") {
+                    setEditingExam({
+                      ...editingExam,
+                      startTime: selectedDate.toLocaleTimeString("th-TH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
+                    });
+                  }
+
+                  if (pickerMode === "endTime") {
+                    setEditingExam({
+                      ...editingExam,
+                      endTime: selectedDate.toLocaleTimeString("th-TH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
+                    });
+                  }
+                }}
+              />
+            )}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.saveBtn}
                 onPress={handleUpdateExam}
               >
-                <Text style={styles.saveBtnText}>บันทึกข้อมูลสอบ</Text>
+                <Text style={styles.saveBtnText}>บันทึก</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -949,6 +992,7 @@ const Timetable = ({ navigation }) => {
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
             </View>
+
           </View>
         </View>
       </Modal>
