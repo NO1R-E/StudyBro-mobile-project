@@ -27,8 +27,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // --- 1. Import Firebase ---
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, signOut } from "firebase/auth";
+import { getFirestore, doc, deleteDoc } from "firebase/firestore"; // เพิ่ม Firestore เข้ามาที่นี่
 
-// --- 2. Firebase Config (ใช้ตัวเดิมของคุณ) ---
+// --- 2. Firebase Config ---
 const firebaseConfig = {
   apiKey: "AIzaSyDTYzI4VIIegvvkosB_vIHKmZABq-EfkBk",
   authDomain: "studybro-mobile-project.firebaseapp.com",
@@ -42,6 +43,7 @@ const firebaseConfig = {
 // ตรวจสอบเพื่อไม่ให้ Firebase init ซ้ำ
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
+const db = getFirestore(app); // ประกาศตัวแปร db ไว้ใช้งาน
 
 const Profile = () => {
   const navigation = useNavigation();
@@ -72,13 +74,11 @@ const Profile = () => {
     }
   };
 
-  //คณะและสาขา
   const facultyData = {
     ศวท: ["IT", "Computer Science"],
     วิศวะ: ["Computer Engineer", "ไฟฟ้า"],
   };
 
-  // สร้าง State สำหรับเก็บข้อมูลโปรไฟล์
   const [profile, setProfile] = useState({
     name: "",
     faculty: "",
@@ -88,7 +88,7 @@ const Profile = () => {
     avatar: "",
   });
 
-  const [userEmail, setUserEmail] = useState(""); // เพิ่ม State เก็บอีเมล
+  const [userEmail, setUserEmail] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -97,22 +97,18 @@ const Profile = () => {
     Inter_700Bold,
   });
 
-  // 1. ดึงข้อมูลจากเครื่อง + ดึงอีเมลจาก Firebase
   useEffect(() => {
     const loadData = async () => {
       try {
-        // ดึงข้อมูลอีเมลและชื่อจาก Firebase Auth
         const currentUser = auth.currentUser;
         if (currentUser) {
           setUserEmail(currentUser.email);
         }
 
-        // ดึงข้อมูลโปรไฟล์จาก AsyncStorage
         const savedProfile = await AsyncStorage.getItem("myProfile");
         if (savedProfile) {
           setProfile(JSON.parse(savedProfile));
         } else if (currentUser && currentUser.displayName) {
-          // ถ้ายังไม่มีโปรไฟล์ในเครื่อง ให้เอาชื่อจาก Firebase มาเป็นค่าเริ่มต้น
           setProfile((prev) => ({ ...prev, name: currentUser.displayName }));
         }
       } catch (e) {
@@ -124,17 +120,16 @@ const Profile = () => {
     loadData();
   }, []);
 
-  // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
   useEffect(() => {
     if (!isLoaded) return;
     AsyncStorage.setItem("myProfile", JSON.stringify(profile));
   }, [profile, isLoaded]);
 
   if (!fontsLoaded) {
-    return null; // รอโหลดฟอนต์ก่อน
+    return null;
   }
 
-  // ฟังก์ชันสำหรับการล้างข้อมูล (Clear Data)
+  // --- Logic การลบข้อมูลแบบล้างทั้งเครื่องและ Cloud ---
   const handleClearData = () => {
     Alert.alert(
       "⚠️ ยืนยันการลบข้อมูล",
@@ -146,15 +141,17 @@ const Profile = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              await AsyncStorage.multiRemove([
-                "myProfile",
-                "user_table",
-                "user_table_list",
-                "user_exams",
-                "myTasks",
-                "current_username",
-              ]);
+              // 1. ลบใน Cloud (Firestore)
+              if (auth.currentUser) {
+                const userDocRef = doc(db, "users", auth.currentUser.uid, "timetable", "data");
+                await deleteDoc(userDocRef);
+                console.log("Firestore Data Deleted");
+              }
 
+              // 2. ลบในเครื่อง (AsyncStorage)
+              await AsyncStorage.clear();
+
+              // 3. ล้าง State
               setProfile({
                 name: "",
                 faculty: "",
@@ -167,6 +164,7 @@ const Profile = () => {
               Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว");
             } catch (e) {
               console.error("Failed to clear data", e);
+              Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถลบข้อมูลบนระบบได้");
             }
           },
         },
@@ -174,7 +172,6 @@ const Profile = () => {
     );
   };
 
-  // --- 3. ฟังก์ชันลงชื่อออก (Logout) ---
   const handleLogout = () => {
     Alert.alert("ลงชื่อออก", "คุณต้องการลงชื่อออกจากระบบใช่หรือไม่?", [
       { text: "ยกเลิก", style: "cancel" },
@@ -183,9 +180,9 @@ const Profile = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            await signOut(auth); // สั่ง Firebase ให้ออกจากระบบ
-            await AsyncStorage.removeItem("current_username"); // ลบชื่อที่จำไว้ออก
-            navigation.replace("Login"); // เด้งกลับไปหน้า Login
+            await signOut(auth);
+            await AsyncStorage.removeItem("current_username");
+            navigation.replace("Login");
           } catch (error) {
             console.error("Logout Error:", error);
             Alert.alert("ข้อผิดพลาด", "ไม่สามารถลงชื่อออกได้ กรุณาลองใหม่");
@@ -234,11 +231,9 @@ const Profile = () => {
           </View>
         </View>
 
-        {/* Info Section - Pink Borders */}
         <View style={styles.infoCard}>
           <Text style={styles.ProfileLabelinput}>โปรไฟล์ & การตั้งค่า</Text>
 
-          {/* ฟิลด์ Email อ่านได้อย่างเดียว */}
           <View style={styles.infoRow}>
             <Text style={styles.label}>บัญชีอีเมล (Email)</Text>
             <Text style={[styles.value, { color: "#A87BAB", fontSize: 16 }]}>
@@ -403,7 +398,6 @@ const Profile = () => {
             <Text style={styles.clearBtnText}>Clear All data</Text>
           </TouchableOpacity>
 
-          {/* ปุ่ม Logout สีแดง */}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={25} color="#FFF" />
             <Text style={styles.logoutBtnText}>ลงชื่อออก (Logout)</Text>
@@ -449,7 +443,6 @@ const Profile = () => {
     </KeyboardAvoidingView>
   );
 };
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF0F3" },
   scrollContent: { padding: 20, alignItems: "center", paddingBottom: 100 },
