@@ -130,10 +130,10 @@ const Profile = () => {
   }
 
   // --- Logic การลบข้อมูลแบบล้างทั้งเครื่องและ Cloud ---
-  const handleClearData = () => {
+ const handleClearData = () => {
     Alert.alert(
       "⚠️ ยืนยันการลบข้อมูล",
-      "ข้อมูลทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?",
+      "ข้อมูลทั้งหมดจะถูกลบและแอปจะรีสตาร์ทหน้าหลัก คุณแน่ใจหรือไม่?",
       [
         { text: "ยกเลิก", style: "cancel" },
         {
@@ -145,13 +145,12 @@ const Profile = () => {
               if (auth.currentUser) {
                 const userDocRef = doc(db, "users", auth.currentUser.uid, "timetable", "data");
                 await deleteDoc(userDocRef);
-                console.log("Firestore Data Deleted");
               }
 
-              // 2. ลบในเครื่อง (AsyncStorage)
+              // 2. ล้าง AsyncStorage ทั้งหมด (ล้างทุก Key)
               await AsyncStorage.clear();
 
-              // 3. ล้าง State
+              // 3. รีเซ็ต State ในหน้า Profile
               setProfile({
                 name: "",
                 faculty: "",
@@ -161,10 +160,22 @@ const Profile = () => {
                 avatar: "",
               });
 
-              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว");
+              // 4. *** บังคับรีเฟรชหน้าอื่นด้วยการ Reset Navigation ***
+              // เปลี่ยน "Home" เป็นชื่อหน้าแรกของคุณใน App.js (เช่น "Main" หรือ "Tabs")
+              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว", [
+                {
+                  text: "ตกลง",
+                  onPress: () => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: "Home" }], 
+                    });
+                  },
+                },
+              ]);
             } catch (e) {
-              console.error("Failed to clear data", e);
-              Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถลบข้อมูลบนระบบได้");
+              console.error(e);
+              Alert.alert("Error", "ไม่สามารถลบข้อมูลได้");
             }
           },
         },
