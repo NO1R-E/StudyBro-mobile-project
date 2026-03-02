@@ -24,6 +24,25 @@ import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// --- 1. Import Firebase ---
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, signOut } from 'firebase/auth';
+
+// --- 2. Firebase Config (ใช้ตัวเดิมของคุณ) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDTYzI4VIIegvvkosB_vIHKmZABq-EfkBk",
+  authDomain: "studybro-mobile-project.firebaseapp.com",
+  projectId: "studybro-mobile-project",
+  storageBucket: "studybro-mobile-project.firebasestorage.app",
+  messagingSenderId: "659667223336",
+  appId: "1:659667223336:web:ba25c4788cc0b27d4bc61d",
+  measurementId: "G-YX12N8CHDP"
+};
+
+// ตรวจสอบเพื่อไม่ให้ Firebase init ซ้ำ
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+
 const Profile = () => {
   const navigation = useNavigation();
 
@@ -69,44 +88,47 @@ const Profile = () => {
     avatar: "",
   });
 
+  const [userEmail, setUserEmail] = useState(""); // เพิ่ม State เก็บอีเมล
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // 1. ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const savedProfile = await AsyncStorage.getItem("myProfile");
-        if (savedProfile) {
-          setProfile(JSON.parse(savedProfile));
-        }
-      } catch (e) {
-        console.error("Failed to load profile", e);
-      }
-    };
-    loadProfile();
-  }, []);
-
-  // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
-    useEffect(() => {
-      const loadProfile = async () => {
-        const saved = await AsyncStorage.getItem("myProfile");
-        if (saved) setProfile(JSON.parse(saved));
-        setIsLoaded(true);
-      };
-      loadProfile();
-    }, []);
-
-    useEffect(() => {
-      if (!isLoaded) return;
-      AsyncStorage.setItem("myProfile", JSON.stringify(profile));
-    }, [profile, isLoaded]);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
   });
 
-  const [isEditing, setIsEditing] = useState(false);
+  // 1. ดึงข้อมูลจากเครื่อง + ดึงอีเมลจาก Firebase
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // ดึงข้อมูลอีเมลและชื่อจาก Firebase Auth
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          setUserEmail(currentUser.email);
+        }
+
+        // ดึงข้อมูลโปรไฟล์จาก AsyncStorage
+        const savedProfile = await AsyncStorage.getItem("myProfile");
+        if (savedProfile) {
+          setProfile(JSON.parse(savedProfile));
+        } else if (currentUser && currentUser.displayName) {
+          // ถ้ายังไม่มีโปรไฟล์ในเครื่อง ให้เอาชื่อจาก Firebase มาเป็นค่าเริ่มต้น
+          setProfile((prev) => ({ ...prev, name: currentUser.displayName }));
+        }
+      } catch (e) {
+        console.error("Failed to load profile", e);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+    loadData();
+  }, []);
+
+  // 2. บันทึกข้อมูลลงเครื่องทุกครั้งที่ profile เปลี่ยนแปลง
+  useEffect(() => {
+    if (!isLoaded) return;
+    AsyncStorage.setItem("myProfile", JSON.stringify(profile));
+  }, [profile, isLoaded]);
 
   if (!fontsLoaded) {
     return null; // รอโหลดฟอนต์ก่อน
@@ -129,7 +151,8 @@ const Profile = () => {
                 "user_table",
                 "user_table_list",
                 "user_exams",
-                "myTasks"
+                "myTasks",
+                "current_username"
               ]);
 
               setProfile({
@@ -141,11 +164,7 @@ const Profile = () => {
                 avatar: "",
               });
 
-              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว", [
-                {
-                  text: "ตกลง",
-                },
-              ]);
+              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว");
             } catch (e) {
               console.error("Failed to clear data", e);
             }
@@ -153,6 +172,27 @@ const Profile = () => {
         },
       ],
     );
+  };
+
+  // --- 3. ฟังก์ชันลงชื่อออก (Logout) ---
+  const handleLogout = () => {
+    Alert.alert("ลงชื่อออก", "คุณต้องการลงชื่อออกจากระบบใช่หรือไม่?", [
+      { text: "ยกเลิก", style: "cancel" },
+      {
+        text: "ยืนยัน",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth); // สั่ง Firebase ให้ออกจากระบบ
+            await AsyncStorage.removeItem('current_username'); // ลบชื่อที่จำไว้ออก
+            navigation.replace("Login"); // เด้งกลับไปหน้า Login
+          } catch (error) {
+            console.error("Logout Error:", error);
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถลงชื่อออกได้ กรุณาลองใหม่");
+          }
+        }
+      }
+    ]);
   };
 
   const toggleEdit = () => {
@@ -193,9 +233,18 @@ const Profile = () => {
             <Text style={styles.ProfileLabelDes}>จัดการตั้งค่าข้อมูล</Text>
           </View>
         </View>
+
         {/* Info Section - Pink Borders */}
         <View style={styles.infoCard}>
           <Text style={styles.ProfileLabelinput}>โปรไฟล์ & การตั้งค่า</Text>
+
+          {/* ฟิลด์ Email อ่านได้อย่างเดียว */}
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>บัญชีอีเมล (Email)</Text>
+            <Text style={[styles.value, { color: "#A87BAB", fontSize: 16 }]}>
+              {userEmail || "กำลังโหลด..."}
+            </Text>
+          </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>ชื่อ-นามสกุล</Text>
@@ -208,7 +257,7 @@ const Profile = () => {
                 placeholderTextColor="#FFB3C6"
               />
             ) : (
-              <Text style={styles.value}>{profile.name}</Text>
+              <Text style={styles.value}>{profile.name || "-"}</Text>
             )}
           </View>
 
@@ -303,7 +352,7 @@ const Profile = () => {
                 placeholderTextColor="#FFB3C6"
               />
             ) : (
-              <Text style={styles.value}>{profile.year}</Text>
+              <Text style={styles.value}>{profile.year || "-"}</Text>
             )}
           </View>
 
@@ -324,6 +373,7 @@ const Profile = () => {
             </Text>
           </TouchableOpacity>
         </View>
+
         <View style={styles.infoCardDetail}>
           <Text style={styles.biglabel}>รายละเอียด แอพพลิเคชั่น</Text>
           <Text>
@@ -351,6 +401,12 @@ const Profile = () => {
           <TouchableOpacity style={styles.clearBtn} onPress={handleClearData}>
             <Ionicons name="trash-bin-outline" size={25} color="#FF7675" />
             <Text style={styles.clearBtnText}>Clear All data</Text>
+          </TouchableOpacity>
+
+          {/* ปุ่ม Logout สีแดง */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={25} color="#FFF" />
+            <Text style={styles.logoutBtnText}>ลงชื่อออก (Logout)</Text>
           </TouchableOpacity>
         </View>
 
@@ -396,7 +452,7 @@ const Profile = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF0F3" },
-  scrollContent: { padding: 20, alignItems: "center" },
+  scrollContent: { padding: 20, alignItems: "center", paddingBottom: 100 },
   headerSection: {
     alignItems: "center",
     marginBottom: 30,
@@ -539,10 +595,28 @@ const styles = StyleSheet.create({
     color: "#FF7675",
     fontWeight: "bold",
     marginLeft: 10,
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
   },
-  versionText: { marginTop: 30, color: "#FFB7C5", fontSize: 12 },
+  logoutBtn: {
+    flexDirection: "row",
+    width: "100%",
+    padding: 15,
+    borderRadius: 15,
+    backgroundColor: "#FF7675",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 5,
+    elevation: 2,
+  },
+  logoutBtnText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    marginLeft: 10,
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+  },
+  versionText: { marginTop: 10, color: "#FFB7C5", fontSize: 12 },
   ProfileLabel: { color: "#fff", fontSize: 20, fontFamily: "Inter_700Bold" },
   ProfileLabelDes: {
     color: "#fff",

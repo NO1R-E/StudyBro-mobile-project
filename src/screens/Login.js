@@ -1,22 +1,20 @@
-
-import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from "@expo/vector-icons";
-import AntDesign from '@expo/vector-icons/AntDesign';
 
-// --- 1. Import Firebase & Expo Auth ---
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+// --- 1. Import Firebase สำหรับ Email/Password ---
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { 
+  initializeAuth, 
+  getReactNativePersistence, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  updateProfile 
+} from 'firebase/auth';
 
-// บังคับให้ WebBrowser ปิดอัตโนมัติเมื่อล็อกอินเสร็จ
-WebBrowser.maybeCompleteAuthSession();
-
-// --- 2. ใส่ Config ของ Firebase ของคุณตรงนี้ ---
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// --- 2. Firebase Config ของคุณ ---
 const firebaseConfig = {
   apiKey: "AIzaSyDTYzI4VIIegvvkosB_vIHKmZABq-EfkBk",
   authDomain: "studybro-mobile-project.firebaseapp.com",
@@ -27,15 +25,20 @@ const firebaseConfig = {
   measurementId: "G-YX12N8CHDP"
 };
 
-// ตรวจสอบว่ามีแอป Firebase ถูกสร้างไว้หรือยัง
+// ตรวจสอบและเริ่มต้น Firebase Auth
 const app = initializeApp(firebaseConfig);
-
-// เปลี่ยนวิธีเรียกใช้งาน auth เพื่อให้มันจำการล็อกอินลงฮาร์ดดิสก์เครื่อง
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
 const Login = ({ navigation }) => {
+  // สวิตช์สลับระหว่างหน้า Login(true) และ Register(false)
+  const [isLogin, setIsLogin] = useState(true); 
+  
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [fontsLoaded] = useFonts({
@@ -43,70 +46,147 @@ const Login = ({ navigation }) => {
     Inter_700Bold,
   });
 
-  // --- 3. ตั้งค่า Google Auth Request ---
-  // นำ Web Client ID ที่ก๊อปปี้มาจาก Firebase Console มาใส่ตรงนี้
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '659667223336-56r7p3oraokvb05pn3namcopli4dtnuq.apps.googleusercontent.com',
-  });
-
-  // --- 4. ดักจับผลลัพธ์การล็อกอิน ---
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      
-      // นำ Token ที่ได้จาก Google ไปยืนยันตัวตนกับ Firebase
-      signInWithCredential(auth, credential)
-        .then(async (userCredential) => {
-          const user = userCredential.user;
-          
-          // เซฟชื่อผู้ใช้ที่ได้จาก Google ลงเครื่อง
-          await AsyncStorage.setItem('current_username', user.displayName || "ผู้ใช้");
-          
-          // พาไปหน้า Dashboard
-          navigation.replace("MainApp", { userName: user.displayName });
-        })
-        .catch((error) => {
-          console.error("Firebase Auth Error: ", error);
-          setLoading(false);
-        });
-    } else if (response?.type === 'cancel' || response?.type === 'error') {
-      setLoading(false);
+  // --- ฟังก์ชันจัดการ การสมัครสมาชิก / เข้าสู่ระบบ ---
+  const handleAuth = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน");
+      return;
     }
-  }, [response]);
 
-  const handleGoogleLogin = () => {
+    if (!isLogin && !name.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อของคุณ");
+      return;
+    }
+
     setLoading(true);
-    promptAsync(); // เด้งหน้าต่าง Google Login
+
+    try {
+      let user;
+      if (isLogin) {
+        // โหมด: เข้าสู่ระบบ (Login)
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        user = userCredential.user;
+      } else {
+        // โหมด: สมัครสมาชิก (Register)
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        user = userCredential.user;
+        
+        // อัปเดตชื่อผู้ใช้เข้าไปในระบบ Firebase
+        await updateProfile(user, { displayName: name });
+      }
+
+      // เซฟชื่อลงเครื่องเพื่อนำไปใช้ในหน้า Dashboard หรือ Profile
+      await AsyncStorage.setItem('current_username', user.displayName || name || "ผู้ใช้");
+      
+      setLoading(false);
+      // พาไปหน้าหลัก
+      navigation.replace("MainApp", { userName: user.displayName || name });
+
+    } catch (error) {
+      setLoading(false);
+      console.error("Auth Error:", error.code);
+      
+      // แปลง Error Code ของ Firebase เป็นภาษาไทยให้ผู้ใช้เข้าใจง่าย
+      if (error.code === 'auth/email-already-in-use') {
+        Alert.alert("ข้อผิดพลาด", "อีเมลนี้มีผู้ใช้งานแล้ว");
+      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert("ข้อผิดพลาด", "รูปแบบอีเมลไม่ถูกต้อง");
+      } else if (error.code === 'auth/weak-password') {
+        Alert.alert("ข้อผิดพลาด", "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        Alert.alert("ข้อผิดพลาด", "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      } else {
+        Alert.alert("ข้อผิดพลาด", "เกิดเหตุขัดข้อง กรุณาลองใหม่อีกครั้ง");
+      }
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
       <View style={styles.formContainer}>
         <View style={styles.logoCircle}>
           <Ionicons name="school" size={60} color="#FFF" />
         </View>
         
-        <Text style={styles.title}>ยินดีต้อนรับ!</Text>
-        <Text style={styles.subtitle}>จัดการตารางเรียนและกิจกรรมของคุณ</Text>
+        <Text style={styles.title}>{isLogin ? "ยินดีต้อนรับ!" : "สร้างบัญชีใหม่"}</Text>
+        <Text style={styles.subtitle}>
+          {isLogin ? "เข้าสู่ระบบเพื่อจัดการการเรียนของคุณ" : "สมัครสมาชิกเพื่อเริ่มต้นใช้งานแอป"}
+        </Text>
 
-        {loading ? (
-          <View style={{ marginTop: 20 }}>
-            <ActivityIndicator size="large" color="#C7005C" />
-            <Text style={{ marginTop: 10, color: "#9B7B8E" }}>กำลังเข้าสู่ระบบ...</Text>
+        {/* ช่องกรอกชื่อ (แสดงเฉพาะตอนกด สมัครสมาชิก) */}
+        {!isLogin && (
+          <View style={styles.inputContainer}>
+            <Ionicons name="person-outline" size={20} color="#9B7B8E" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="ชื่อของคุณ (Name)"
+              placeholderTextColor="#9B7B8E"
+              value={name}
+              onChangeText={setName}
+            />
           </View>
-        ) : (
-          <TouchableOpacity 
-            style={styles.googleBtn} 
-            onPress={handleGoogleLogin}
-            disabled={!request}
-          >
-            <AntDesign name="google" size={24} color="#FFF" style={{ marginRight: 10 }} />
-            <Text style={styles.googleBtnText}>เข้าสู่ระบบด้วย Google</Text>
-          </TouchableOpacity>
         )}
+
+        {/* ช่องกรอกอีเมล */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="mail-outline" size={20} color="#9B7B8E" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="อีเมล (Email)"
+            placeholderTextColor="#9B7B8E"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </View>
+
+        {/* ช่องกรอกรหัสผ่าน */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed-outline" size={20} color="#9B7B8E" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="รหัสผ่าน (Password)"
+            placeholderTextColor="#9B7B8E"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{padding: 10}}>
+            <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#9B7B8E" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ปุ่มยืนยัน */}
+        <TouchableOpacity 
+          style={styles.actionBtn} 
+          onPress={handleAuth}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.actionBtnText}>{isLogin ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* ปุ่มสลับโหมด Login / Register */}
+        <View style={styles.switchContainer}>
+          <Text style={styles.switchText}>
+            {isLogin ? "ยังไม่มีบัญชีใช่หรือไม่? " : "มีบัญชีอยู่แล้วใช่ไหม? "}
+          </Text>
+          <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+            <Text style={styles.switchBtnText}>
+              {isLogin ? "สมัครเลย" : "เข้าสู่ระบบ"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -144,24 +224,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     color: "#9B7B8E",
-    marginBottom: 40,
+    marginBottom: 30,
     textAlign: "center",
   },
-  googleBtn: {
+  inputContainer: {
     flexDirection: "row",
-    backgroundColor: "#DB4437", // สีแดงของ Google
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 15,
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    height: 55,
+    borderWidth: 1,
+    borderColor: "#FFDAE0",
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    color: "#333",
+  },
+  actionBtn: {
+    backgroundColor: "#C7005C",
     width: "100%",
     height: 55,
     borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 10,
     elevation: 3,
   },
-  googleBtnText: {
+  actionBtnText: {
     color: "#FFF",
     fontSize: 18,
     fontFamily: "Inter_700Bold",
   },
+  switchContainer: {
+    flexDirection: "row",
+    marginTop: 25,
+  },
+  switchText: {
+    color: "#9B7B8E",
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+  },
+  switchBtnText: {
+    color: "#EA3287",
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+  }
 });
 
 export default Login;
