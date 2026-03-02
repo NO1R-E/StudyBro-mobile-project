@@ -297,6 +297,24 @@ const Timetable = ({ navigation }) => {
   ];
 
   const handleUpdateExam = () => {
+    // ✅ เช็คว่ามีเวลาไหม
+    if (!editingExam.startTime || !editingExam.endTime) {
+      alert("กรุณาเลือกเวลาให้ครบ");
+      return;
+    }
+    // ✅ แปลง "09:00" → ชั่วโมง/นาที
+    const [startHour, startMinute] = editingExam.startTime.split(":").map(Number);
+    const [endHour, endMinute] = editingExam.endTime.split(":").map(Number);
+
+    const startTotal = startHour * 60 + startMinute;
+    const endTotal = endHour * 60 + endMinute;
+
+    // ✅ เช็คเวลาเริ่มต้องน้อยกว่าเวลาจบ
+    if (startTotal >= endTotal) {
+      alert("เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด");
+      return;
+    }
+
     const updatedExams = examList.map((ex) =>
       ex.id === editingExam.id ? editingExam : ex,
     );
@@ -587,7 +605,7 @@ const Timetable = ({ navigation }) => {
               .filter((item) => item.table === selectedTable)
               .map((item) => (
                 <View key={item.id} style={styles.examCardMini}>
-                  <View style={{ flexDirection: "row", gap: 20 }}>
+                  <View style={{ flexDirection: "row", gap: 20 , justifyContent:'space-between' }}>
                     <View>
                       <Text style={styles.examValue}>
                         {item.examDate || "กรุณากรอกวันสอบ"}
@@ -744,7 +762,7 @@ const Timetable = ({ navigation }) => {
                   {
                     opacity:
                       (action === "add" && !newTableName) ||
-                      (action === "delete" && !selectedTable)
+                        (action === "delete" && !selectedTable)
                         ? 0.5
                         : 1,
                   },

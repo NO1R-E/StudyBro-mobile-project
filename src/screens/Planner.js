@@ -190,7 +190,7 @@ const Planner = () => {
         { text: "ยืนยันการบันทึก", onPress: () => executeSave() },
       ]);
     } else {
-      executeSave(); 
+      executeSave();
     }
   };
 
