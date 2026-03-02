@@ -145,24 +145,27 @@ const Timetable = ({ navigation }) => {
 
   useEffect(() => {
     setExamList((prev) => {
-      return table.map((c) => {
-        const existing = prev.find((e) => e.id === c.id);
+      return table
+        .filter((c) => c.table === selectedTable) // 👈 กรองตาม Semester
+        .map((c) => {
+          const existing = prev.find((e) => e.id === c.id);
 
-        return existing
-          ? { ...existing, section: c.sec } // Ensure the section updates if the class sec changes
-          : {
+          return existing
+            ? { ...existing, section: c.sec }
+            : {
               id: c.id,
               code: c.code,
               name: c.name,
-              section: c.sec || "100", // Map 'sec' from table to 'section' for exams
+              section: c.sec || "100",
               examDate: "",
               startTime: "",
               endTime: "",
               room: "",
+              table: c.table, // 👈 เก็บ semester ไว้ด้วย
             };
-      });
+        });
     });
-  }, [table]);
+  }, [table, selectedTable]);
 
   const dayThemes = new Map([
     [
@@ -448,45 +451,47 @@ const Timetable = ({ navigation }) => {
               <Text style={styles.title}>Exam Schedule</Text>
             </View>
 
-            {examList.map((item) => (
-              <View key={item.id} style={styles.examCardMini}>
-                <View style={{ flexDirection: "row", gap: 20 }}>
-                  <View>
-                    <Text style={styles.examValue}>
-                      {item.examDate || "กรุณากรอกวันสอบ"}
-                    </Text>
-
-                    <Text style={styles.examValue}>
-                      {item.startTime && item.endTime
-                        ? `${item.startTime} - ${item.endTime}`
-                        : "กรุณากรอกเวลาสอบ"}
-                    </Text>
-                  </View>
-                  <View>
-                    <Text style={styles.examDatail}>
-                      {item.code} sec {item.section}
-                    </Text>
-
-                    <Text style={styles.examDatail}>{item.name}</Text>
-                    <Text style={styles.examDatail}>
-                      ห้อง :{" "}
+            {examList
+              .filter((item) => item.table === selectedTable)
+              .map((item) => (
+                <View key={item.id} style={styles.examCardMini}>
+                  <View style={{ flexDirection: "row", gap: 20 }}>
+                    <View>
                       <Text style={styles.examValue}>
-                        {item.room || "ติดต่อผู้สอน"}
+                        {item.examDate || "กรุณากรอกวันสอบ"}
                       </Text>
-                    </Text>
+
+                      <Text style={styles.examValue}>
+                        {item.startTime && item.endTime
+                          ? `${item.startTime} - ${item.endTime}`
+                          : "กรุณากรอกเวลาสอบ"}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text style={styles.examDatail}>
+                        {item.code} sec {item.section}
+                      </Text>
+
+                      <Text style={styles.examDatail}>{item.name}</Text>
+                      <Text style={styles.examDatail}>
+                        ห้อง :{" "}
+                        <Text style={styles.examValue}>
+                          {item.room || "ติดต่อผู้สอน"}
+                        </Text>
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={{ paddingLeft: 14 }}
+                      onPress={() => {
+                        setEditingExam(item);
+                        setModalExamEditVisible(true);
+                      }}
+                    >
+                      <Feather name="edit" size={24} color="black" />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    style={{ paddingLeft: 14 }}
-                    onPress={() => {
-                      setEditingExam(item);
-                      setModalExamEditVisible(true);
-                    }}
-                  >
-                    <Feather name="edit" size={24} color="black" />
-                  </TouchableOpacity>
                 </View>
-              </View>
-            ))}
+              ))}
           </View>
         </ScrollView>
       )}
@@ -522,6 +527,7 @@ const Timetable = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setAction("delete")}
                 style={{ flexDirection: "row", alignItems: "center" }}
+
               >
                 <Text style={{ fontSize: 18 }}>
                   {action === "delete" ? "🔘" : "⚪"}
@@ -584,7 +590,7 @@ const Timetable = ({ navigation }) => {
                   marginTop: 20,
                   opacity:
                     (action === "add" && !newTableName) ||
-                    (action === "delete" && !selectedTable)
+                      (action === "delete" && !selectedTable)
                       ? 0.5
                       : 1,
                 },
@@ -608,13 +614,16 @@ const Timetable = ({ navigation }) => {
                     return;
                   }
 
-                  // ลบออกจากรายชื่อกลุ่ม (tableList)
                   setTableList((prev) =>
                     prev.filter((item) => item.label !== selectedTable),
                   );
-                  // ลบวิชาทั้งหมดที่ผูกกับกลุ่มนี้ (table)
+
                   setTable((prev) =>
                     prev.filter((item) => item.table !== selectedTable),
+                  );
+
+                  setExamList((prev) =>
+                    prev.filter((item) => item.table !== selectedTable)
                   );
 
                   setSelectedTable("default");
