@@ -111,18 +111,7 @@ const Dashboard = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      const fetchData = async () => {
-        try {
-          const savedTasks = await AsyncStorage.getItem("myTasks");
-          if (savedTasks) {
-            setTasks(JSON.parse(savedTasks));
-            console.log(JSON.parse(savedTasks));
-          }
-        } catch (error) {
-          console.error("Load Dashboard Data Failed", error);
-        }
-      };
-      // fetchTasks();
+      loadData();
     }, []),
   );
   
