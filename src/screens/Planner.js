@@ -33,7 +33,6 @@ const Planner = () => {
   });
 
   const [tasks, setTasks] = useState([]);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   // อัปเดตเวลาปัจจุบัน
   //const [currentTime, setCurrentTime] = useState(Date.now());
@@ -61,10 +60,10 @@ const Planner = () => {
 
   // 2. เซฟข้อมูลลงเครื่องอัตโนมัติเมื่อ tasks เปลี่ยน
   useEffect(() => {
-    if (isLoaded) {
-      AsyncStorage.setItem('@my_tasks', JSON.stringify(tasks)).catch(e => console.error(e));
-    }
-  }, [tasks, isLoaded]);
+    AsyncStorage.setItem("myTasks", JSON.stringify(tasks)).catch((e) =>
+      console.error(e),
+    );
+  }, [tasks]);
 
   const [currentTime, setCurrentTime] = useState(Date.now());
   useEffect(() => {
