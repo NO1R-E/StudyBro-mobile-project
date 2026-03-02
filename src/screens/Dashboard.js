@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
 import {
@@ -87,7 +93,7 @@ const Dashboard = ({ navigation }) => {
           console.error("Load Dashboard Data Failed", error);
         }
       };
-      fetchTasks();
+      // fetchTasks();
     }, []),
   );
 
@@ -240,7 +246,7 @@ const Dashboard = ({ navigation }) => {
   //           if (sub.examDate.includes('/')) {
   //             const parts = sub.examDate.split('/');
   //             if (parts.length === 3) {
-  //               parsedDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); 
+  //               parsedDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
   //             }
   //           } else {
   //             parsedDate = new Date(sub.examDate);
@@ -270,11 +276,17 @@ const Dashboard = ({ navigation }) => {
 
       <View style={styles.quickAddSection}>
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate("Timetable")}>
+          <TouchableOpacity
+            style={styles.quickBtn}
+            onPress={() => navigation.navigate("Timetable")}
+          >
             <Ionicons name="calendar-outline" size={24} color="#FF748C" />
             <Text style={styles.quickBtnText}>เพิ่มวิชา</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate("Planner")}>
+          <TouchableOpacity
+            style={styles.quickBtn}
+            onPress={() => navigation.navigate("Planner")}
+          >
             <Ionicons name="heart-outline" size={24} color="#FF748C" />
             <Text style={styles.quickBtnText}>เพิ่มงาน</Text>
           </TouchableOpacity>
@@ -493,7 +505,7 @@ const Dashboard = ({ navigation }) => {
           upcomingActivities.map((activity) => (
             <View key={activity.id} style={styles.examItem}>
               <Text style={styles.examDate}>
-                {activity.dateString} เวลา {activity.timeString.split('-')[0]}
+                {activity.dateString} เวลา {activity.timeString.split("-")[0]}
               </Text>
               <Text style={styles.examName}>{activity.title}</Text>
               <Text style={styles.examName}>
@@ -569,10 +581,33 @@ const styles = StyleSheet.create({
   emptyText: { color: "#FFB7C5", fontStyle: "italic", textAlign: "center" },
   quickAddSection: { marginBottom: 40 },
   buttonRow: { flexDirection: "row", justifyContent: "space-between" },
-  quickBtn: { backgroundColor: "#FFF", flex: 0.48, padding: 15, borderRadius: 18, alignItems: "center", elevation: 3, borderWidth: 1.5, borderColor: "#FFDAE0" },
-  card: { backgroundColor: "#FFF", flex: 0.48, marginBottom: 15, padding: 15, borderRadius: 18, elevation: 3, borderWidth: 1.5, borderColor: "#FFDAE0" },
+  quickBtn: {
+    backgroundColor: "#FFF",
+    flex: 0.48,
+    padding: 15,
+    borderRadius: 18,
+    alignItems: "center",
+    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: "#FFDAE0",
+  },
+  card: {
+    backgroundColor: "#FFF",
+    flex: 0.48,
+    marginBottom: 15,
+    padding: 15,
+    borderRadius: 18,
+    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: "#FFDAE0",
+  },
   quickBtnText: { marginTop: 8, fontWeight: "600", color: "#FF748C" },
-  nextClassCard: { backgroundColor: "#FFAAC9", padding: 15, borderRadius: 12, marginTop: 10 }, // แก้สีพื้นหลังให้อ่านง่าย
+  nextClassCard: {
+    backgroundColor: "#FFAAC9",
+    padding: 15,
+    borderRadius: 12,
+    marginTop: 10,
+  }, // แก้สีพื้นหลังให้อ่านง่าย
 });
 
 export default Dashboard;
