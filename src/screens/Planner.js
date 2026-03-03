@@ -140,27 +140,34 @@ const Planner = () => {
       weekday: "long",
     });
 
-    const executeSave = async () => {
-      try {
-        const newTask = {
-          id: Date.now().toString(),
-          title: activityName.trim(),
-          timeString: `${newStart} - ${newEnd}`,
-          dateString: dateStr,
-          category,
-          note,
-          completed: false,
-        };
-        const updatedTasks = [...tasks, newTask];
-        setTasks(updatedTasks);
-        await AsyncStorage.setItem("myTasks", JSON.stringify(updatedTasks));
-        setActivityName("");
-        setNote("");
-        setModalVisible(false);
-      } catch (error) {
-        Alert.alert("Error", "ไม่สามารถบันทึกได้");
-      }
-    };
+const executeSave = async () => {
+    try {
+      const finalActivityDate = new Date(activityDate);
+      finalActivityDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+
+      const newTask = {
+        id: Date.now().toString(),
+        title: activityName.trim(),
+        timeString: `${newStart} - ${newEnd}`,
+        dateString: dateStr,
+        category,
+        note,
+        completed: false,
+        
+        status: "pending", 
+        endTimeMs: finalActivityDate.getTime(),
+      };
+
+      const updatedTasks = [...tasks, newTask];
+      setTasks(updatedTasks);
+      await AsyncStorage.setItem("myTasks", JSON.stringify(updatedTasks));
+      setActivityName("");
+      setNote("");
+      setModalVisible(false);
+    } catch (error) {
+      Alert.alert("Error", "ไม่สามารถบันทึกได้");
+    }
+  };
 
     const hasActivityConflict = tasks.some(
       (t) =>
