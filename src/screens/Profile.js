@@ -24,32 +24,16 @@ import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// --- 1. Import Firebase ---
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, signOut } from "firebase/auth";
-import { getFirestore, doc, deleteDoc } from "firebase/firestore"; // เพิ่ม Firestore เข้ามาที่นี่
-
-// --- 2. Firebase Config ---
-const firebaseConfig = {
-  apiKey: "AIzaSyDTYzI4VIIegvvkosB_vIHKmZABq-EfkBk",
-  authDomain: "studybro-mobile-project.firebaseapp.com",
-  projectId: "studybro-mobile-project",
-  storageBucket: "studybro-mobile-project.firebasestorage.app",
-  messagingSenderId: "659667223336",
-  appId: "1:659667223336:web:ba25c4788cc0b27d4bc61d",
-  measurementId: "G-YX12N8CHDP",
-};
-
-// ตรวจสอบเพื่อไม่ให้ Firebase init ซ้ำ
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app); // ประกาศตัวแปร db ไว้ใช้งาน
+import { signOut } from "firebase/auth";
+import { db, auth } from "../../firebaseConfig";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 const Profile = () => {
   const navigation = useNavigation();
 
-const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const pickImage = async () => {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
       Alert.alert("แจ้งเตือน", "ต้องอนุญาตให้เข้าถึงคลังรูปภาพก่อน");
@@ -70,8 +54,8 @@ const pickImage = async () => {
       const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
       const data = new FormData();
       data.append("file", base64Img);
-      
-      data.append("upload_preset", "Mobile"); 
+
+      data.append("upload_preset", "Mobile");
       data.append("cloud_name", "dyvzbdlcx");
 
       try {
@@ -80,18 +64,22 @@ const pickImage = async () => {
           {
             method: "POST",
             body: data,
-          }
+          },
         );
 
         const cloudData = await response.json();
 
-        if (cloudData.secure_url) {          setProfile((prev) => ({
+        if (cloudData.secure_url) {
+          setProfile((prev) => ({
             ...prev,
             avatar: cloudData.secure_url,
           }));
           Alert.alert("สำเร็จ", "เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!");
         } else {
-          Alert.alert("ข้อผิดพลาด", "ไม่สามารถนำส่งรูปภาพได้: " + cloudData.error?.message);
+          Alert.alert(
+            "ข้อผิดพลาด",
+            "ไม่สามารถนำส่งรูปภาพได้: " + cloudData.error?.message,
+          );
         }
       } catch (error) {
         console.error("Cloudinary Upload Error: ", error);
@@ -100,7 +88,7 @@ const pickImage = async () => {
     }
   };
 
-const facultyData  = {
+  const facultyData = {
     ศวท: [
       // คณะศิลปศาสตร์และวิทยาศาสตร์ (Liberal Arts and Science)
       "IT (เทคโนโลยีสารสนเทศ)",
@@ -181,33 +169,91 @@ const facultyData  = {
     Inter_700Bold,
   });
 
+  const persistProfile = async (newProfile) => {
+    try {
+      const timestamp = new Date().toISOString();
+
+      await AsyncStorage.multiSet([
+        ["myProfile", JSON.stringify(newProfile)],
+        ["last_updated_profile", timestamp],
+      ]);
+
+      // 2. Update Firestore if user is logged in
+      if (auth.currentUser) {
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "profile",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          {
+            ...newProfile,
+            lastUpdated: timestamp,
+          },
+          { merge: true },
+        );
+      }
+      console.log("DEBUG: successfully send Profile data!");
+    } catch (error) {
+      console.error("Sync Profile Error:", error);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
+    const loadAndSyncProfile = async () => {
       try {
         const currentUser = auth.currentUser;
-        if (currentUser) {
-          setUserEmail(currentUser.email);
+        if (currentUser) setUserEmail(currentUser.email);
+
+        // Pull local data
+        const localProfile = await AsyncStorage.getItem("myProfile");
+        const localTS = await AsyncStorage.getItem("last_updated_profile");
+
+        if (localProfile) {
+          setProfile(JSON.parse(localProfile));
         }
 
-        const savedProfile = await AsyncStorage.getItem("myProfile");
-        if (savedProfile) {
-          setProfile(JSON.parse(savedProfile));
-        } else if (currentUser && currentUser.displayName) {
-          setProfile((prev) => ({ ...prev, name: currentUser.displayName }));
+        // Sync with Cloud
+        if (currentUser) {
+          const userDocRef = doc(
+            db,
+            "users",
+            currentUser.uid,
+            "profile",
+            "data",
+          );
+          const docSnap = await getDoc(userDocRef);
+
+          if (docSnap.exists()) {
+            const cloudData = docSnap.data();
+            const cloudTS = cloudData.lastUpdated;
+
+            // Logic: If Cloud is newer than Local, or Local doesn't exist
+            const isCloudNewer =
+              !localTS || new Date(cloudTS) > new Date(localTS);
+
+            if (isCloudNewer) {
+              const { lastUpdated, ...profileData } = cloudData;
+              setProfile(profileData);
+              await AsyncStorage.multiSet([
+                ["myProfile", JSON.stringify(profileData)],
+                ["last_updated_profile", cloudTS],
+              ]);
+            }
+          }
         }
-      } catch (e) {
-        console.error("Failed to load profile", e);
+      } catch (error) {
+        console.error("Load Profile Sync Error:", error);
       } finally {
         setIsLoaded(true);
       }
     };
-    loadData();
-  }, []);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    AsyncStorage.setItem("myProfile", JSON.stringify(profile));
-  }, [profile, isLoaded]);
+    loadAndSyncProfile();
+  }, []);
 
   if (!fontsLoaded) {
     return null;
@@ -290,7 +336,20 @@ const facultyData  = {
         onPress: async () => {
           try {
             await signOut(auth);
-            await AsyncStorage.removeItem("current_username");
+
+            const keys = [
+              "myTasks",
+              "last_updated_planner",
+              "user_table",
+              "user_table_list",
+              "user_exams",
+              "last_updated",
+              "myProfile",
+              "current_username",
+              "last_updated_profile",
+            ];
+            await AsyncStorage.multiRemove(keys);
+
             navigation.replace("Login");
           } catch (error) {
             console.error("Logout Error:", error);
@@ -301,17 +360,16 @@ const facultyData  = {
     ]);
   };
 
-  const toggleEdit = () => {
+  const toggleEdit = async () => {
     if (isEditing) {
+      await persistProfile(profile);
       Alert.alert("สำเร็จ", "บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว");
-
       navigation.navigate({
-        name: "Home",
+        name: "Profile",
         params: { userName: profile.name },
         merge: true,
       });
     }
-
     setIsEditing(!isEditing);
   };
 
