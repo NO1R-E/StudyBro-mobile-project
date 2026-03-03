@@ -303,7 +303,9 @@ const Timetable = ({ navigation }) => {
       return;
     }
     // ✅ แปลง "09:00" → ชั่วโมง/นาที
-    const [startHour, startMinute] = editingExam.startTime.split(":").map(Number);
+    const [startHour, startMinute] = editingExam.startTime
+      .split(":")
+      .map(Number);
     const [endHour, endMinute] = editingExam.endTime.split(":").map(Number);
 
     const startTotal = startHour * 60 + startMinute;
@@ -430,7 +432,7 @@ const Timetable = ({ navigation }) => {
           },
           { merge: true },
         );
-        console.log("DEBUG: Firestore updated successfully.");
+        console.log("DEBUG: Firestore time updated successfully.");
       }
     } catch (error) {
       console.error("DEBUG PERSISTENCE ERROR:", error);
@@ -539,32 +541,59 @@ const Timetable = ({ navigation }) => {
                   </Text>
                 ) : (
                   dailyClasses.map((item) => (
-               <View key={item.id} style={styles.classCard}>
-  <View style={{ flexDirection: "row", gap: 20 }}>
-    <Text style={[styles.timeLabel, { color: theme?.text }]}>
-      {item.start} - {item.end}
-    </Text>
-    <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row",justifyContent:'space-between', alignItems: "center" }}>
-        <Text style={[styles.classlabel, { color: theme?.detail }]}>
-          {item.code} sec {item.sec}
-        </Text>
-        <TouchableOpacity
-          onPress={() => handleDeleteSubject(item.id)}
-          style={{ padding: 5, }}
-        >
-          <Feather name="trash-2" size={20} color="#FF7675" />
-        </TouchableOpacity>
-      </View>
-      <Text style={[styles.classlabel, { color: theme?.detail }]}>
-        {item.name}
-      </Text>
-      <Text style={[styles.classlabel, { color: theme?.detail }]}>
-        ห้อง: {item.room}
-      </Text>
-    </View>
-  </View>
-</View>
+                    <View key={item.id} style={styles.classCard}>
+                      <View style={{ flexDirection: "row", gap: 20 }}>
+                        <Text
+                          style={[styles.timeLabel, { color: theme?.text }]}
+                        >
+                          {item.start} - {item.end}
+                        </Text>
+                        <View style={{ flex: 1 }}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.classlabel,
+                                { color: theme?.detail },
+                              ]}
+                            >
+                              {item.code} sec {item.sec}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteSubject(item.id)}
+                              style={{ padding: 5 }}
+                            >
+                              <Feather
+                                name="trash-2"
+                                size={20}
+                                color="#FF7675"
+                              />
+                            </TouchableOpacity>
+                          </View>
+                          <Text
+                            style={[
+                              styles.classlabel,
+                              { color: theme?.detail },
+                            ]}
+                          >
+                            {item.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.classlabel,
+                              { color: theme?.detail },
+                            ]}
+                          >
+                            ห้อง: {item.room}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
                   ))
                 )}
               </View>
@@ -590,7 +619,13 @@ const Timetable = ({ navigation }) => {
               .filter((item) => item.table === selectedTable)
               .map((item) => (
                 <View key={item.id} style={styles.examCardMini}>
-                  <View style={{ flexDirection: "row", gap: 20 , justifyContent:'space-between' }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      gap: 20,
+                      justifyContent: "space-between",
+                    }}
+                  >
                     <View>
                       <Text style={styles.examValue}>
                         {item.examDate || "กรุณากรอกวันสอบ"}
@@ -747,7 +782,7 @@ const Timetable = ({ navigation }) => {
                   {
                     opacity:
                       (action === "add" && !newTableName) ||
-                        (action === "delete" && !selectedTable)
+                      (action === "delete" && !selectedTable)
                         ? 0.5
                         : 1,
                   },

@@ -24,8 +24,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import isOverlapping from "../helper/isOverlapping";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db, auth } from "../../firebaseConfig";
 
 const Planner = () => {
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [activityName, setActivityName] = useState("");
   const [category, setCategory] = useState("study");
@@ -56,52 +59,135 @@ const Planner = () => {
   //const [currentTime, setCurrentTime] = useState(Date.now());
 
   //ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
+
+  const persistTasks = async (newTasks) => {
+    try {
+      const timestamp = new Date().toISOString();
+
+      // Update Local Storage
+      await AsyncStorage.multiSet([
+        ["myTasks", JSON.stringify(newTasks)],
+        ["last_updated_planner", timestamp],
+      ]);
+
+      // Update Firestore if user is logged in
+      if (auth.currentUser) {
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "planner",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          {
+            tasks: newTasks,
+            lastUpdated: timestamp,
+          },
+          { merge: true },
+        );
+      }
+      console.log("DEBUG: Firestore activity updated successfully.");
+    } catch (error) {
+      console.error("Sync Error:", error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
-      const loadTasks = async () => {
+      const loadAndSync = async () => {
         try {
-          const savedTasks = await AsyncStorage.getItem("myTasks");
+          // Pull local data
+          const localTasks = await AsyncStorage.getItem("myTasks");
+          const localTS = await AsyncStorage.getItem("last_updated_planner");
 
-          if (savedTasks) {
-            setTasks(JSON.parse(savedTasks));
-          } else {
-            setTasks([]);
+          if (localTasks) {
+            setTasks(JSON.parse(localTasks));
           }
-        } catch (e) {
-          console.error("Failed to load tasks", e);
+
+          if (auth.currentUser) {
+            const userDocRef = doc(
+              db,
+              "users",
+              auth.currentUser.uid,
+              "planner",
+              "data",
+            );
+            const docSnap = await getDoc(userDocRef);
+
+            if (docSnap.exists()) {
+              const cloudData = docSnap.data();
+              const cloudTS = cloudData.lastUpdated;
+
+              // Logic: If Cloud is newer than Local, or Local doesn't exist
+              const isCloudNewer =
+                !localTS || new Date(cloudTS) > new Date(localTS);
+
+              if (isCloudNewer) {
+                setTasks(cloudData.tasks || []);
+                await AsyncStorage.multiSet([
+                  ["myTasks", JSON.stringify(cloudData.tasks)],
+                  ["last_updated_planner", cloudTS],
+                ]);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Load Sync Error:", error);
         }
       };
 
-      loadTasks();
+      loadAndSync();
     }, []),
   );
 
-  //เซฟข้อมูลลงเครื่องอัตโนมัติเมื่อ tasks เปลี่ยน
-  useEffect(() => {
-    AsyncStorage.setItem("myTasks", JSON.stringify(tasks)).catch((e) =>
-      console.error(e),
-    );
-  }, [tasks]);
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     const loadTasks = async () => {
+  //       try {
+  //         const savedTasks = await AsyncStorage.getItem("myTasks");
 
-  const [currentTime, setCurrentTime] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+  //         if (savedTasks) {
+  //           setTasks(JSON.parse(savedTasks));
+  //         } else {
+  //           setTasks([]);
+  //         }
+  //       } catch (e) {
+  //         console.error("Failed to load tasks", e);
+  //       }
+  //     };
+
+  //     loadTasks();
+  //   }, []),
+  // );
+
+  //เซฟข้อมูลลงเครื่องอัตโนมัติเมื่อ tasks เปลี่ยน
+  // useEffect(() => {
+  //   AsyncStorage.setItem("myTasks", JSON.stringify(tasks)).catch((e) =>
+  //     console.error(e),
+  //   );
+  // }, [tasks]);
+
+  // const [currentTime, setCurrentTime] = useState(Date.now());
+  // useEffect(() => {
+  //   const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+  //   return () => clearInterval(timer);
+  // }, []);
 
   const toggleTaskStatus = (id) => {
-    setTasks(
-      tasks.map((task) => {
-        if (task.id === id) {
-          let nextStatus = "pending";
-          if (task.status === "pending") nextStatus = "completed";
-          else if (task.status === "completed") nextStatus = "missed";
-          else if (task.status === "missed") nextStatus = "pending";
-          return { ...task, status: nextStatus };
-        }
-        return task;
-      }),
-    );
+    const updatedTasks = tasks.map((task) => {
+      if (task.id === id) {
+        let nextStatus = "pending";
+        if (task.status === "pending") nextStatus = "completed";
+        else if (task.status === "completed") nextStatus = "missed";
+        else if (task.status === "missed") nextStatus = "pending";
+        return { ...task, status: nextStatus };
+      }
+      return task;
+    });
+    setTasks(updatedTasks);
+    persistTasks(updatedTasks);
   };
 
   const activeTasks = tasks.filter((task) => {
@@ -140,34 +226,40 @@ const Planner = () => {
       weekday: "long",
     });
 
-const executeSave = async () => {
-    try {
-      const finalActivityDate = new Date(activityDate);
-      finalActivityDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+    const executeSave = async () => {
+      try {
+        const finalActivityDate = new Date(activityDate);
+        finalActivityDate.setHours(
+          endTime.getHours(),
+          endTime.getMinutes(),
+          0,
+          0,
+        );
 
-      const newTask = {
-        id: Date.now().toString(),
-        title: activityName.trim(),
-        timeString: `${newStart} - ${newEnd}`,
-        dateString: dateStr,
-        category,
-        note,
-        completed: false,
-        
-        status: "pending", 
-        endTimeMs: finalActivityDate.getTime(),
-      };
+        const newTask = {
+          id: Date.now().toString(),
+          title: activityName.trim(),
+          timeString: `${newStart} - ${newEnd}`,
+          dateString: dateStr,
+          category,
+          note,
+          status: "pending",
+          endTimeMs: finalActivityDate.getTime(),
+        };
 
-      const updatedTasks = [...tasks, newTask];
-      setTasks(updatedTasks);
-      await AsyncStorage.setItem("myTasks", JSON.stringify(updatedTasks));
-      setActivityName("");
-      setNote("");
-      setModalVisible(false);
-    } catch (error) {
-      Alert.alert("Error", "ไม่สามารถบันทึกได้");
-    }
-  };
+        const updatedTasks = [...tasks, newTask];
+        setTasks(updatedTasks);
+
+        // Call the new sync function
+        await persistTasks(updatedTasks);
+
+        setActivityName("");
+        setNote("");
+        setModalVisible(false);
+      } catch (error) {
+        Alert.alert("Error", "ไม่สามารถบันทึกได้");
+      }
+    };
 
     const hasActivityConflict = tasks.some(
       (t) =>
@@ -212,7 +304,9 @@ const executeSave = async () => {
       {
         text: "ลบกิจกรรม",
         onPress: () => {
-          setTasks(tasks.filter((task) => task.id !== taskId));
+          const updatedTasks = tasks.filter((task) => task.id !== taskId);
+          setTasks(updatedTasks);
+          persistTasks(updatedTasks); // Sync deletion
           setDetailsModalVisible(false);
           setSelectedTask(null);
         },
@@ -636,20 +730,38 @@ const executeSave = async () => {
                 </View>
 
                 <TouchableOpacity
-                    onPress={() => toggleTaskStatus(plan.id)}
-                    style={{ padding: 5, width: 35, alignItems: "center" }}
-                  >
-                    {(() => {
-                      if (plan.status === "completed") {
-                        return <Ionicons name="checkmark-circle" size={26} color="#4CAF50" />;
-                      } else if (plan.status === "missed") {
-                        return <Ionicons name="close-circle" size={26} color="#FF5252" />;
-                      } else {
-                        // ถ้า status เป็นค่าอื่น หรือเป็น null/undefined ให้โชว์วงกลมเทาไว้ก่อน
-                        return <Ionicons name="ellipse-outline" size={26} color="#E0E0E0" />;
-                      }
-                    })()}
-                  </TouchableOpacity>
+                  onPress={() => toggleTaskStatus(plan.id)}
+                  style={{ padding: 5, width: 35, alignItems: "center" }}
+                >
+                  {(() => {
+                    if (plan.status === "completed") {
+                      return (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={26}
+                          color="#4CAF50"
+                        />
+                      );
+                    } else if (plan.status === "missed") {
+                      return (
+                        <Ionicons
+                          name="close-circle"
+                          size={26}
+                          color="#FF5252"
+                        />
+                      );
+                    } else {
+                      // ถ้า status เป็นค่าอื่น หรือเป็น null/undefined ให้โชว์วงกลมเทาไว้ก่อน
+                      return (
+                        <Ionicons
+                          name="ellipse-outline"
+                          size={26}
+                          color="#E0E0E0"
+                        />
+                      );
+                    }
+                  })()}
+                </TouchableOpacity>
               </TouchableOpacity>
             ))
           )}
