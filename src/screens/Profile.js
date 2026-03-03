@@ -507,11 +507,27 @@ const Profile = () => {
                 keyboardType="numeric"
                 value={profile.year}
                 onChangeText={(t) => {
+                  // 1. กรองให้เหลือแต่ตัวเลข
                   const onlyNumbers = t.replace(/[^0-9]/g, "");
-                  setProfile({ ...profile, year: onlyNumbers });
+
+                  // 2. ถ้าเป็นค่าว่าง ยอมให้ set เพื่อการลบ/แก้ไข
+                  if (onlyNumbers === "") {
+                    setProfile({ ...profile, year: "" });
+                    return;
+                  }
+
+                  // 3. แปลงเป็นตัวเลขเพื่อเช็คเงื่อนไข 1-20
+                  const yearNum = parseInt(onlyNumbers, 10);
+                  if (yearNum >= 1 && yearNum <= 20) {
+                    setProfile({ ...profile, year: onlyNumbers });
+                  } else if (yearNum > 20) {
+                    // ถ้ากรอกเกิน 20 ให้ค้างไว้ที่ 20 หรือแจ้งเตือน
+                    setProfile({ ...profile, year: "20" });
+                  }
                 }}
-                placeholder="กรอกชั้นปี"
+                placeholder="กรอกชั้นปี (1-20)"
                 placeholderTextColor="#FFB3C6"
+                maxLength={2} // จำกัดจำนวนหลักไม่ให้พิมพ์เกิน 2 หลัก
               />
             ) : (
               <Text style={styles.value}>{profile.year || "-"}</Text>
