@@ -636,27 +636,20 @@ const executeSave = async () => {
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => toggleTaskStatus(plan.id)}
-                  style={{ padding: 5, width: 35, alignItems: "flex-end" }}
-                >
-                  {plan.status === "completed" && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={26}
-                      color="#4CAF50"
-                    />
-                  )}
-                  {plan.status === "missed" && (
-                    <Ionicons name="close-circle" size={26} color="#FF5252" />
-                  )}
-                  {plan.status === "pending" && (
-                    <Ionicons
-                      name="ellipse-outline"
-                      size={26}
-                      color="#E0E0E0"
-                    />
-                  )}
-                </TouchableOpacity>
+                    onPress={() => toggleTaskStatus(plan.id)}
+                    style={{ padding: 5, width: 35, alignItems: "center" }}
+                  >
+                    {(() => {
+                      if (plan.status === "completed") {
+                        return <Ionicons name="checkmark-circle" size={26} color="#4CAF50" />;
+                      } else if (plan.status === "missed") {
+                        return <Ionicons name="close-circle" size={26} color="#FF5252" />;
+                      } else {
+                        // ถ้า status เป็นค่าอื่น หรือเป็น null/undefined ให้โชว์วงกลมเทาไว้ก่อน
+                        return <Ionicons name="ellipse-outline" size={26} color="#E0E0E0" />;
+                      }
+                    })()}
+                  </TouchableOpacity>
               </TouchableOpacity>
             ))
           )}
