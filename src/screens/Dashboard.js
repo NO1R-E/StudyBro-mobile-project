@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
   useFonts,
   Inter_400Regular,
@@ -17,6 +17,7 @@ import {
 import Entypo from "@expo/vector-icons/Entypo";
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Foundation from "@expo/vector-icons/Foundation";
 
 const Dashboard = ({ navigation }) => {
   const route = useRoute();
@@ -98,7 +99,6 @@ const Dashboard = ({ navigation }) => {
         setTasks([]);
         setUpcomingActivities([]);
       }
-      
 
       // ===== Profile =====
       if (savedProfile) {
@@ -209,8 +209,7 @@ const Dashboard = ({ navigation }) => {
         const lastDayOfWeek = new Date(firstDayOfWeek);
         lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
 
-        return activityDate >= firstDayOfWeek &&
-          activityDate <= lastDayOfWeek;
+        return activityDate >= firstDayOfWeek && activityDate <= lastDayOfWeek;
       }
 
       // 🔹 เดือนนี้
@@ -524,14 +523,14 @@ const Dashboard = ({ navigation }) => {
           <View
             style={{
               position: "absolute",
-              top: 45,          // ปรับตามตำแหน่ง header
+              top: 45, // ปรับตามตำแหน่ง header
               right: 0,
               backgroundColor: "white",
               borderRadius: 10,
               paddingVertical: 5,
               width: 150,
-              elevation: 5,     // Android shadow
-              zIndex: 1000,     // iOS
+              elevation: 5, // Android shadow
+              zIndex: 1000, // iOS
             }}
           >
             <TouchableOpacity
@@ -606,10 +605,14 @@ const Dashboard = ({ navigation }) => {
                 }}
               >
                 <View style={styles.locationRow}>
-                  <Ionicons name="location" size={16} color="#EA3287" />
+                  <Foundation
+                    name="clipboard-notes"
+                    size={16}
+                    color="#EA3287"
+                  />
                   <Text style={{ color: "#EA3287", fontSize: 15 }}>
                     {" "}
-                    สถานที่: {activity.location || "ไม่ได้ระบุ"}
+                    Note: {activity.note || "ไม่ได้ระบุ"}
                   </Text>
                 </View>
 
