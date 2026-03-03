@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { Audio } from "expo-av"; // นำเข้า Audio จาก expo-av
 import { StyleSheet, View, Image, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -178,6 +179,49 @@ const MainTabs = () => {
 
 // 2. ตัวหลักของ App: ใช้ Stack คุมว่าหน้าแรกคือ Login
 const App = () => {
+  // ส่วนของ Logic การเล่นเพลงพื้นหลัง
+  useEffect(() => {
+    let soundObject = null;
+
+    async function setupAndPlay() {
+      try {
+        // 1. ตั้งค่า Audio Mode ให้ Android อนุญาตให้แอปใช้ลำโพงหลัก
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          staysActiveInBackground: true, // เล่นต่อแม้พับจอ
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true, // ยอมให้แอปอื่นเบาลงเมื่อแอปเราเล่น
+          playThroughEarpieceAndroid: false, // บังคับให้ออกลำโพงหลัก/หูฟัง (ไม่ใช่ลำโพงสนทนาเบาๆ)
+        });
+
+        console.log("กำลังโหลดไฟล์เพลง...");
+
+        // 2. โหลดและสั่งเล่น
+        const { sound } = await Audio.Sound.createAsync(
+          require("./assets/bg.mp3"),
+          { shouldPlay: true, isLooping: true, volume: 1.0 }, // ปรับเสียงสุด 1.0
+        );
+
+        soundObject = sound;
+
+        // 3. สั่ง Play ซ้ำอีกครั้งเพื่อความมั่นใจ
+        await soundObject.playAsync();
+        console.log("ลำโพงควรจะดังแล้วตอนนี้!");
+      } catch (error) {
+        console.log("Error playing sound:", error);
+      }
+    }
+
+    setupAndPlay();
+
+    // Clean up เมื่อปิดแอป
+    return () => {
+      if (soundObject) {
+        soundObject.unloadAsync();
+      }
+    };
+  }, []);
+
   return (
     <PaperProvider>
       <NavigationContainer>
