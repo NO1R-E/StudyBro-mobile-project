@@ -130,7 +130,7 @@ const Profile = () => {
   }
 
   // --- Logic การลบข้อมูลแบบล้างทั้งเครื่องและ Cloud ---
- const handleClearData = () => {
+  const handleClearData = () => {
     Alert.alert(
       "⚠️ ยืนยันการลบข้อมูล",
       "ข้อมูลทั้งหมดจะถูกลบและแอปจะรีสตาร์ทหน้าหลัก คุณแน่ใจหรือไม่?",
@@ -143,8 +143,22 @@ const Profile = () => {
             try {
               // 1. ลบใน Cloud (Firestore)
               if (auth.currentUser) {
-                const userDocRef = doc(db, "users", auth.currentUser.uid, "timetable", "data");
+                const userDocRef = doc(
+                  db,
+                  "users",
+                  auth.currentUser.uid,
+                  "timetable",
+                  "data",
+                );
                 await deleteDoc(userDocRef);
+                const userDocRef2 = doc(
+                  db,
+                  "users",
+                  auth.currentUser.uid,
+                  "planner",
+                  "data",
+                );
+                await deleteDoc(userDocRef2);
               }
 
               // 2. ล้าง AsyncStorage ทั้งหมด (ล้างทุก Key)
@@ -168,7 +182,7 @@ const Profile = () => {
                   onPress: () => {
                     navigation.reset({
                       index: 0,
-                      routes: [{ name: "Home" }], 
+                      routes: [{ name: "Profile" }],
                     });
                   },
                 },
