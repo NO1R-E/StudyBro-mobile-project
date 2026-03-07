@@ -258,55 +258,52 @@ const Profile = () => {
   if (!fontsLoaded) {
     return null;
   }
-
-  // --- Logic การลบข้อมูลแบบล้างทั้งเครื่องและ Cloud ---
+// --- Logic การลบข้อมูล (เฉพาะตารางเรียนและแพลนเนอร์ ไม่แตะโปรไฟล์) ---
   const handleClearData = () => {
     Alert.alert(
       "⚠️ ยืนยันการลบข้อมูล",
-      "ข้อมูลทั้งหมดจะถูกลบและแอปจะรีสตาร์ทหน้าหลัก คุณแน่ใจหรือไม่?",
+      "ข้อมูลตารางเรียน แพลนเนอร์ และงานต่างๆ จะถูกลบ (ข้อมูลโปรไฟล์จะยังอยู่เหมือนเดิม) คุณแน่ใจหรือไม่?",
       [
         { text: "ยกเลิก", style: "cancel" },
         {
-          text: "ลบข้อมูลทั้งหมด",
+          text: "ลบข้อมูล",
           style: "destructive",
           onPress: async () => {
             try {
-              // 1. ลบใน Cloud (Firestore)
+              // 1. ลบใน Cloud (Firestore) เฉพาะข้อมูลตารางเรียนและแพลนเนอร์
               if (auth.currentUser) {
                 const userDocRef = doc(
                   db,
                   "users",
                   auth.currentUser.uid,
                   "timetable",
-                  "data",
+                  "data"
                 );
                 await deleteDoc(userDocRef);
+                
                 const userDocRef2 = doc(
                   db,
                   "users",
                   auth.currentUser.uid,
                   "planner",
-                  "data",
+                  "data"
                 );
                 await deleteDoc(userDocRef2);
               }
 
-              // 2. ล้าง AsyncStorage ทั้งหมด (ล้างทุก Key)
-              await AsyncStorage.clear();
+              // 2. ลบเฉพาะ Key ในเครื่องที่เกี่ยวกับตารางเรียนและแพลนเนอร์
+              const keysToRemove = [
+                "myTasks",
+                "last_updated_planner",
+                "user_table",
+                "user_table_list",
+                "user_exams",
+                "last_updated",
+              ];
+              await AsyncStorage.multiRemove(keysToRemove);
 
-              // 3. รีเซ็ต State ในหน้า Profile
-              setProfile({
-                name: "",
-                faculty: "",
-                major: "",
-                year: "",
-                studentId: "",
-                avatar: "",
-              });
-
-              // 4. *** บังคับรีเฟรชหน้าอื่นด้วยการ Reset Navigation ***
-              // เปลี่ยน "Home" เป็นชื่อหน้าแรกของคุณใน App.js (เช่น "Main" หรือ "Tabs")
-              Alert.alert("สำเร็จ", "ล้างข้อมูลเรียบร้อยแล้ว", [
+              // 3. แจ้งเตือนและ "รีเซ็ตหน้าจอ" (ใช้ Navigation Reset ตามที่ต้องการ)
+              Alert.alert("สำเร็จ", "ล้างข้อมูลตารางเรียนและแพลนเนอร์เรียบร้อยแล้ว", [
                 {
                   text: "ตกลง",
                   onPress: () => {
