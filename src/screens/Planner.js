@@ -1,319 +1,181 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome5, AntDesign } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import {
-  useFonts,
-  Inter_400Regular,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import { Picker } from '@react-native-picker/picker';
+import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback } from "react";
-import isOverlapping from "../helper/isOverlapping";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
+import isOverlapping from "../helper/isOverlapping";
 
 const Planner = () => {
-  const [lastUpdated, setLastUpdated] = useState(null);
+  // --- States: UI & Form ---
   const [modalVisible, setModalVisible] = useState(false);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [activityName, setActivityName] = useState("");
   const [category, setCategory] = useState("study");
   const [note, setNote] = useState("");
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [filterCategory, setFilterCategory] = useState("all");
 
+  // --- States: Date & Time ---
   const [activityDate, setActivityDate] = useState(new Date());
   const [startTime, setStartTime] = useState(new Date());
-  const [endTime, setEndTime] = useState(
-    new Date(new Date().setHours(new Date().getHours() + 1)),
-  );
-
+  const [endTime, setEndTime] = useState(new Date(new Date().setHours(new Date().getHours() + 1)));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
-  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [filterCategory, setFilterCategory] = useState("all");
-
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_700Bold,
-  });
-
+  // --- States: Data (Tasks & Timetable) ---
   const [tasks, setTasks] = useState([]);
+  const [allSubjects, setAllSubjects] = useState([]); // วิชาทั้งหมดจากตารางเรียน
+  const [semesterList, setSemesterList] = useState([]); // รายการเทอม
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [filteredSubjects, setFilteredSubjects] = useState([]); // วิชาที่กรองตามเทอม
+  const [selectedSubjectName, setSelectedSubjectName] = useState("");
 
-  // อัปเดตเวลาปัจจุบัน
-  //const [currentTime, setCurrentTime] = useState(Date.now());
+  const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_700Bold });
 
-  //ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
-
+  // 1. ฟังก์ชันบันทึกข้อมูล (ลงเครื่อง และ Firebase)
   const persistTasks = async (newTasks) => {
     try {
       const timestamp = new Date().toISOString();
-
-      // Update Local Storage
       await AsyncStorage.multiSet([
         ["myTasks", JSON.stringify(newTasks)],
         ["last_updated_planner", timestamp],
       ]);
 
-      // Update Firestore if user is logged in
       if (auth.currentUser) {
-        const userDocRef = doc(
-          db,
-          "users",
-          auth.currentUser.uid,
-          "planner",
-          "data",
-        );
-        await setDoc(
-          userDocRef,
-          {
-            tasks: newTasks,
-            lastUpdated: timestamp,
-          },
-          { merge: true },
-        );
+        const userDocRef = doc(db, "users", auth.currentUser.uid, "planner", "data");
+        await setDoc(userDocRef, { tasks: newTasks, lastUpdated: timestamp }, { merge: true });
       }
-      console.log("DEBUG: Firestore activity updated successfully.");
     } catch (error) {
       console.error("Sync Error:", error);
     }
   };
 
+  // 2. ดึงข้อมูลครั้งแรกเมื่อหน้าจอถูก Focus (ดึงทั้ง Tasks และ ข้อมูลตารางเรียน)
   useFocusEffect(
     useCallback(() => {
-      const loadAndSync = async () => {
+      const loadAllData = async () => {
         try {
-          // Pull local data
+          // โหลดกิจกรรม (Tasks)
           const localTasks = await AsyncStorage.getItem("myTasks");
           const localTS = await AsyncStorage.getItem("last_updated_planner");
+          if (localTasks) setTasks(JSON.parse(localTasks));
 
-          if (localTasks) {
-            setTasks(JSON.parse(localTasks));
-          }
+          // โหลดตารางเรียนเพื่อนำมาใช้เลือกใน Planner
+          const localTable = await AsyncStorage.getItem("user_table");
+          const localList = await AsyncStorage.getItem("user_table_list");
+          if (localTable) setAllSubjects(JSON.parse(localTable));
+          if (localList) setSemesterList(JSON.parse(localList));
 
+          // ตรวจสอบ Sync กับ Firebase (ถ้า Cloud ใหม่กว่าให้ใช้ Cloud)
           if (auth.currentUser) {
-            const userDocRef = doc(
-              db,
-              "users",
-              auth.currentUser.uid,
-              "planner",
-              "data",
-            );
+            const userDocRef = doc(db, "users", auth.currentUser.uid, "planner", "data");
             const docSnap = await getDoc(userDocRef);
-
             if (docSnap.exists()) {
               const cloudData = docSnap.data();
-              const cloudTS = cloudData.lastUpdated;
-
-              // Logic: If Cloud is newer than Local, or Local doesn't exist
-              const isCloudNewer =
-                !localTS || new Date(cloudTS) > new Date(localTS);
-
-              if (isCloudNewer) {
+              if (!localTS || new Date(cloudData.lastUpdated) > new Date(localTS)) {
                 setTasks(cloudData.tasks || []);
-                await AsyncStorage.multiSet([
-                  ["myTasks", JSON.stringify(cloudData.tasks)],
-                  ["last_updated_planner", cloudTS],
-                ]);
+                await AsyncStorage.setItem("myTasks", JSON.stringify(cloudData.tasks));
+                await AsyncStorage.setItem("last_updated_planner", cloudData.lastUpdated);
               }
             }
           }
         } catch (error) {
-          console.error("Load Sync Error:", error);
+          console.error("Load Data Error:", error);
         }
       };
-
-      loadAndSync();
-    }, []),
+      loadAllData();
+    }, [])
   );
 
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     const loadTasks = async () => {
-  //       try {
-  //         const savedTasks = await AsyncStorage.getItem("myTasks");
-
-  //         if (savedTasks) {
-  //           setTasks(JSON.parse(savedTasks));
-  //         } else {
-  //           setTasks([]);
-  //         }
-  //       } catch (e) {
-  //         console.error("Failed to load tasks", e);
-  //       }
-  //     };
-
-  //     loadTasks();
-  //   }, []),
-  // );
-
-  //เซฟข้อมูลลงเครื่องอัตโนมัติเมื่อ tasks เปลี่ยน
-  // useEffect(() => {
-  //   AsyncStorage.setItem("myTasks", JSON.stringify(tasks)).catch((e) =>
-  //     console.error(e),
-  //   );
-  // }, [tasks]);
-
-  // const [currentTime, setCurrentTime] = useState(Date.now());
-  // useEffect(() => {
-  //   const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
-  //   return () => clearInterval(timer);
-  // }, []);
-
-  const toggleTaskStatus = (id) => {
-    const updatedTasks = tasks.map((task) => {
-      if (task.id === id) {
-        let nextStatus = "pending";
-        if (task.status === "pending") nextStatus = "completed";
-        else if (task.status === "completed") nextStatus = "missed";
-        else if (task.status === "missed") nextStatus = "pending";
-        return { ...task, status: nextStatus };
-      }
-      return task;
-    });
-    setTasks(updatedTasks);
-    persistTasks(updatedTasks);
-  };
-
-  const activeTasks = tasks.filter((task) => {
-    if (task.status !== "pending") return false;
-    if (filterCategory !== "all" && task.category !== filterCategory)
-      return false;
-    return true;
-  });
-
-  const totalCount = tasks.length;
-  const completedCount = tasks.filter(
-    (item) => item.status === "completed",
-  ).length;
-  const missedCount = tasks.filter((item) => item.status === "missed").length;
-
-  const completedPercent =
-    totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-  const missedPercent = totalCount > 0 ? (missedCount / totalCount) * 100 : 0;
-
-  const formatDate = (dateObj) =>
-    `${dateObj.getDate().toString().padStart(2, "0")}/${(dateObj.getMonth() + 1).toString().padStart(2, "0")}/${dateObj.getFullYear()}`;
-  const formatTime = (dateObj) =>
-    `${dateObj.getHours().toString().padStart(2, "0")}:${dateObj.getMinutes().toString().padStart(2, "0")}`;
-
-  // ใน Planner.js
-  const handleSaveActivity = async () => {
-    if (!activityName.trim()) {
-      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
-      return;
+  // 3. กรองรายชื่อวิชาเมื่อมีการเลือกเทอม (Semester)
+  useEffect(() => {
+    if (selectedSemester) {
+      const subjectsInTerm = allSubjects.filter(s => s.table === selectedSemester);
+      const uniqueNames = Array.from(new Set(subjectsInTerm.map(s => s.name)));
+      setFilteredSubjects(uniqueNames);
+    } else {
+      setFilteredSubjects([]);
     }
+  }, [selectedSemester, allSubjects]);
+
+  // --- Helper Functions ---
+  const formatDate = (date) => `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}/${date.getFullYear()}`;
+  const formatTime = (date) => `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+
+  // 4. บันทึกกิจกรรมใหม่
+  const handleSaveActivity = async () => {
+    if (!activityName.trim()) return Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
 
     const newStart = formatTime(startTime);
     const newEnd = formatTime(endTime);
     const dateStr = formatDate(activityDate);
-    const dayName = activityDate.toLocaleDateString("en-US", {
-      weekday: "long",
-    });
+    const dayName = activityDate.toLocaleDateString("en-US", { weekday: "long" });
 
     const executeSave = async () => {
-      try {
-        const finalActivityDate = new Date(activityDate);
-        finalActivityDate.setHours(
-          endTime.getHours(),
-          endTime.getMinutes(),
-          0,
-          0,
-        );
-
-        const newTask = {
-          id: Date.now().toString(),
-          title: activityName.trim(),
-          timeString: `${newStart} - ${newEnd}`,
-          dateString: dateStr,
-          category,
-          note,
-          status: "pending",
-          endTimeMs: finalActivityDate.getTime(),
-        };
-
-        const updatedTasks = [...tasks, newTask];
-        setTasks(updatedTasks);
-
-        // Call the new sync function
-        await persistTasks(updatedTasks);
-
-        setActivityName("");
-        setNote("");
-        setModalVisible(false);
-      } catch (error) {
-        Alert.alert("Error", "ไม่สามารถบันทึกได้");
-      }
+      const newTask = {
+        id: Date.now().toString(),
+        title: activityName.trim(),
+        timeString: `${newStart} - ${newEnd}`,
+        dateString: dateStr,
+        category,
+        note,
+        status: "pending",
+      };
+      const updatedTasks = [...tasks, newTask];
+      setTasks(updatedTasks);
+      await persistTasks(updatedTasks);
+      setModalVisible(false);
+      resetForm();
     };
 
-    const hasActivityConflict = tasks.some(
-      (t) =>
-        t.dateString === dateStr &&
-        isOverlapping(
-          newStart,
-          newEnd,
-          t.timeString.split(" - ")[0],
-          t.timeString.split(" - ")[1],
-        ),
-    );
-
-    const savedTable = await AsyncStorage.getItem("user_table");
-    const classes = savedTable ? JSON.parse(savedTable) : [];
-    const classConflict = classes.find(
-      (c) =>
-        c.day === dayName && isOverlapping(newStart, newEnd, c.start, c.end),
-    );
-
-    if (hasActivityConflict || classConflict) {
-      const message = classConflict
-        ? `เวลานี้ตรงกับวิชา ${classConflict.name} คุณต้องการบันทึกกิจกรรมซ้อนลงไปหรือไม่?`
-        : "เวลานี้มีกิจกรรมอื่นอยู่แล้ว คุณต้องการบันทึกซ้อนลงไปหรือไม่?";
-
-      Alert.alert("เวลาซ้ำซ้อน", message, [
+    // เช็คเวลาซ้ำซ้อน
+    const hasConflict = tasks.some(t => t.dateString === dateStr && isOverlapping(newStart, newEnd, t.timeString.split(" - ")[0], t.timeString.split(" - ")[1]));
+    if (hasConflict) {
+      Alert.alert("เวลาซ้ำซ้อน", "เวลานี้มีกิจกรรมอื่นอยู่แล้ว ต้องการบันทึกหรือไม่?", [
         { text: "ยกเลิก", style: "cancel" },
-        { text: "ยืนยันการบันทึก", onPress: () => executeSave() },
+        { text: "บันทึก", onPress: executeSave },
       ]);
     } else {
       executeSave();
     }
   };
 
-  const openTaskDetails = (task) => {
-    setSelectedTask(task);
-    setDetailsModalVisible(true);
+  const resetForm = () => {
+    setActivityName("");
+    setNote("");
+    setSelectedSemester("");
+    setSelectedSubjectName("");
   };
 
-  const handleDeleteTask = (taskId) => {
-    Alert.alert("ยืนยันการลบ", "คุณแน่ใจหรือไม่ว่าต้องการลบกิจกรรมนี้?", [
-      { text: "ยกเลิก", style: "cancel" },
-      {
-        text: "ลบกิจกรรม",
-        onPress: () => {
-          const updatedTasks = tasks.filter((task) => task.id !== taskId);
-          setTasks(updatedTasks);
-          persistTasks(updatedTasks); // Sync deletion
-          setDetailsModalVisible(false);
-          setSelectedTask(null);
-        },
-        style: "destructive",
-      },
-    ]);
+  const toggleTaskStatus = (id) => {
+    const updated = tasks.map(t => {
+      if (t.id === id) {
+        const next = t.status === "pending" ? "completed" : t.status === "completed" ? "missed" : "pending";
+        return { ...t, status: next };
+      }
+      return t;
+    });
+    setTasks(updated);
+    persistTasks(updated);
   };
+
+  // --- การคำนวณ Progress ---
+  const activeTasks = tasks.filter(t => t.status === "pending" && (filterCategory === "all" || t.category === filterCategory));
+  const completedCount = tasks.filter(t => t.status === "completed").length;
+  const missedCount = tasks.filter(t => t.status === "missed").length;
+  const completedPercent = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+  const missedPercent = tasks.length > 0 ? (missedCount / tasks.length) * 100 : 0;
+
+  if (!fontsLoaded) return null;
 
   return (
     <View style={styles.container}>
@@ -329,6 +191,7 @@ const Planner = () => {
         >
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>เพิ่มกิจกรรมใหม่</Text>
+            <Text style={styles.label}>ชื่อกิจกรรม</Text>
             <TextInput
               style={styles.input}
               placeholder="ชื่อกิจกรรม (เช่น ส่งใบงาน)"
@@ -339,38 +202,76 @@ const Planner = () => {
             <Text style={styles.label}>หมวดหมู่กิจกรรม</Text>
             <View style={styles.categoryRow}>
               <TouchableOpacity
-                style={[
-                  styles.categoryButton,
-                  category === "study" && styles.categoryButtonActive,
-                ]}
+                style={[styles.categoryButton, category === "study" && styles.categoryButtonActive]}
                 onPress={() => setCategory("study")}
               >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    category === "study" && styles.categoryTextActive,
-                  ]}
-                >
-                  📖 อ่านหนังสือ
-                </Text>
+                <Text style={[styles.categoryText, category === "study" && styles.categoryTextActive]}>📖 วิชาเรียน</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  styles.categoryButton,
-                  category === "other" && styles.categoryButtonActive,
-                ]}
-                onPress={() => setCategory("other")}
+                style={[styles.categoryButton, category === "other" && styles.categoryButtonActive]}
+                onPress={() => {
+                  setCategory("other");
+                  setSelectedSubjectName("");
+                  setSelectedTerm("");
+                }}
               >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    category === "other" && styles.categoryTextActive,
-                  ]}
-                >
-                  ⚽️ อื่นๆ
-                </Text>
+                <Text style={[styles.categoryText, category === "other" && styles.categoryTextActive]}>⚽️ อื่นๆ</Text>
               </TouchableOpacity>
             </View>
+
+            {category === "study" ? (
+              <>
+                <Text style={styles.label}>เลือกปีการศึกษา (Semester)</Text>
+                <View style={{ borderWidth: 1, borderColor: "#EEE", borderRadius: 10, marginBottom: 15, backgroundColor: "#FAFAFA", overflow: 'hidden' }}>
+                  <Picker
+                    selectedValue={selectedSemester}
+                    onValueChange={(val) => {
+                      setSelectedSemester(val);
+                      setNote(`ปีการศึกษา: ${val}`); // บันทึกเทอมลงใน Note
+                    }}
+                  >
+                    <Picker.Item label="-- เลือกเทอม --" value="" />
+                    {semesterList.map((item, index) => (
+                      <Picker.Item key={index} label={item.label} value={item.label} />
+                    ))}
+                  </Picker>
+                </View>
+
+                {selectedSemester !== "" && (
+                  <>
+                    <Text style={styles.label}>เลือกวิชาในเทอมนี้</Text>
+                    <View style={{ borderWidth: 1, borderColor: "#EEE", borderRadius: 10, marginBottom: 15, backgroundColor: "#FAFAFA", overflow: 'hidden' }}>
+                      <Picker
+                        selectedValue={selectedSubjectName}
+                        onValueChange={(val) => {
+                          setSelectedSubjectName(val);
+                          setActivityName(val); // กำหนดชื่อกิจกรรมจากวิชาที่เลือก
+                        }}
+                      >
+                        <Picker.Item label="-- เลือกรายวิชา --" value="" />
+                        {filteredSubjects.map((name, index) => (
+                          <Picker.Item key={index} label={name} value={name} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {/* ไม่รู้ใส่ไรดี */}
+              </>
+            )}
+
+            <Text style={styles.label}>รายละเอียดเพิ่มเติม</Text>
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+              placeholder="จดบันทึกรายละเอียด..."
+              multiline
+              value={note}
+              onChangeText={setNote}
+            />
+
 
             <Text style={styles.label}>วันที่</Text>
             <TouchableOpacity
@@ -404,15 +305,6 @@ const Planner = () => {
               </View>
             </View>
 
-            <Text style={styles.label}>บันทึกข้อความ (Note)</Text>
-            <TextInput
-              style={styles.textArea}
-              placeholder="เพิ่มรายละเอียดกิจกรรม..."
-              value={note}
-              onChangeText={setNote}
-              multiline={true}
-              numberOfLines={3}
-            />
 
             {showDatePicker && (
               <DateTimePicker
