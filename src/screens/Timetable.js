@@ -166,8 +166,9 @@ const Timetable = ({ navigation }) => {
   };
 
   const handleAddSubject = async () => {
-    if (!subject.name || !subject.code) {
-      Alert.alert("กรุณากรอกข้อมูล", "โปรดระบุชื่อวิชาและรหัสวิชา");
+    // ตรวจสอบค่าว่างของวิชาหลัก
+    if (!subject.code.trim() || !subject.name.trim() || !subject.sec.trim()) {
+      Alert.alert("กรุณากรอกข้อมูล", "โปรดกรอกรหัสวิชา ชื่อวิชา และหมู่เรียน (SEC) ให้ครบถ้วน");
       return;
     }
     if (sessions.length === 0) {
@@ -175,10 +176,42 @@ const Timetable = ({ navigation }) => {
       return;
     }
 
+    // ตรวจสอบค่าว่างของแต่ละคาบเรียน
+    for (let i = 0; i < sessions.length; i++) {
+      if (!sessions[i].type.trim() ) {
+        Alert.alert("กรุณากรอกข้อมูล", `โปรดกรอกประเภท (Lec/Lab) และห้องเรียนในคาบที่ ${i + 1} ให้ครบถ้วน`);
+        return;
+      }
+      if (!sessions[i].room.trim()) {
+        sessions[i].room = "ติดต่ออาจารย์ผู้สอน"; // กำหนดค่าเริ่มต้นหากห้องว่าง
+      } 
+    }
+
+    // แยกข้อมูลวิชาเดิมออกก่อน หากกำลังอยู่ในโหมดแก้ไข
+    let tempTable = table;
+    if (isEditingSubject) {
+      tempTable = table.filter(
+        (c) => !(c.code === editingSubjectOriginalCode && c.table === selectedTable)
+      );
+    }
+
+    // ตรวจสอบวิชาซ้ำ (รหัสวิชาตรงกันในเทอมเดียวกัน)
+    const isDuplicateCode = tempTable.some(
+      (c) => c.code.trim().toUpperCase() === subject.code.trim().toUpperCase() && c.table === selectedTable
+    );
+
+    if (isDuplicateCode) {
+      Alert.alert(
+        "เพิ่มวิชาไม่สำเร็จ",
+        `รหัสวิชา ${subject.code.toUpperCase()} มีอยู่ในตารางเรียนแล้ว หากต้องการเพิ่มคาบเรียนหรือแก้ไข กรุณากดปุ่ม 'แก้ไข' ของวิชานั้นแทนขอรับ`
+      );
+      return;
+    }
+
     const newEntries = sessions.map((s, index) => ({
       id: s.id.toString().includes(Date.now().toString().substring(0, 5)) ? s.id : Date.now().toString() + index.toString(),
       table: selectedTable,
-      code: subject.code,
+      code: subject.code.toUpperCase(), // บันทึกรหัสวิชาเป็นตัวพิมพ์ใหญ่เพื่อความสวยงามและป้องกันปัญหาการเปรียบเทียบ
       name: subject.name,
       sec: subject.sec,
       day: s.day,
@@ -188,16 +221,10 @@ const Timetable = ({ navigation }) => {
       end: formatTime(s.endTime),
     }));
 
-    let tempTable = table;
-    if (isEditingSubject) {
-      tempTable = table.filter(
-        (c) => !(c.code === editingSubjectOriginalCode && c.table === selectedTable)
-      );
-    }
-
     let isConflictFound = false;
     let conflictMsg = "";
 
+    // ตรวจสอบเวลาซ้อนทับกัน
     for (const newEntry of newEntries) {
       const hasClassOverlap = tempTable.some(
         (s) =>
@@ -221,7 +248,7 @@ const Timetable = ({ navigation }) => {
       if (isEditingSubject && editingSubjectOriginalCode !== subject.code) {
         updatedExams = examList.map(e => 
           (e.code === editingSubjectOriginalCode && e.table === selectedTable) 
-            ? { ...e, code: subject.code, name: subject.name, section: subject.sec } 
+            ? { ...e, code: subject.code.toUpperCase(), name: subject.name, section: subject.sec } 
             : e
         );
         setExamList(updatedExams);
@@ -238,7 +265,7 @@ const Timetable = ({ navigation }) => {
       if (isConflictFound) {
         Alert.alert(
           "เวลาซ้ำซ้อน",
-          `${conflictMsg} คุณต้องการอัปเดตวิชานี้ลงในตารางหรือไม่?`,
+          `${conflictMsg} คุณต้องการบันทึกวิชานี้ลงในตารางหรือไม่?`,
           [
             { text: "ยกเลิก", style: "cancel" },
             { text: "บันทึกต่อไป", onPress: () => executeAdd() },
@@ -327,8 +354,8 @@ const Timetable = ({ navigation }) => {
   };
 
   const handleUpdateExam = () => {
-    if (!editingExam.startTime || !editingExam.endTime) {
-      alert("กรุณาเลือกเวลาให้ครบ");
+    if (!editingExam.examDate || !editingExam.startTime || !editingExam.endTime) {
+      Alert.alert("กรุณากรอกข้อมูล", "กรุณาเลือกวันที่และเวลาสอบให้ครบถ้วน");
       return;
     }
     const [startHour, startMinute] = editingExam.startTime.split(":").map(Number);
@@ -338,7 +365,7 @@ const Timetable = ({ navigation }) => {
     const endTotal = endHour * 60 + endMinute;
 
     if (startTotal >= endTotal) {
-      alert("เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด");
+      Alert.alert("เวลาไม่ถูกต้อง", "เวลาเริ่มสอบต้องน้อยกว่าเวลาสิ้นสุด");
       return;
     }
 
@@ -583,7 +610,7 @@ const Timetable = ({ navigation }) => {
                             </TouchableOpacity>
                           </View>
                           <Text style={[styles.classlabel, { color: theme?.detail, marginTop: 4 }]}>{item.name}</Text>
-                          <Text style={[styles.classlabel, { color: theme?.detail }]}>ห้อง: {item.room || "-"}</Text>
+                          <Text style={[styles.classlabel, { color: theme?.detail }]}>ห้อง: {item.room}</Text>
                         </View>
                       </View>
                     </View>
@@ -623,7 +650,7 @@ const Timetable = ({ navigation }) => {
                         </Text>
                         <Text style={styles.examDatail}>{item.name}</Text>
                         <Text style={styles.examDatail}>
-                          ห้อง : <Text style={styles.examValue}>{item.room || "ติดต่อผู้สอน"}</Text>
+                          ห้องสอบ : <Text style={styles.examValue}>{item.room || "รออาจารย์ผู้สอนแจ้ง"}</Text>
                         </Text>
                       </View>
                       <TouchableOpacity
@@ -780,20 +807,25 @@ const Timetable = ({ navigation }) => {
                     </Picker>
                   </View>
 
+                  {/* 📝 เปลี่ยนจาก TextInput เป็น Dropdown สำหรับ Lecture/Lab */}
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                    <TextInput
-                      placeholder="ประเภท (Lec/Lab)"
-                      style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                      value={session.type}
-                      onChangeText={(t) => {
-                        const newS = [...sessions];
-                        newS[index].type = t;
-                        setSessions(newS);
-                      }}
-                    />
+                    <View style={[styles.pickerWrapper, { flex: 1, backgroundColor: "#F1F2F6", borderWidth: 0, height: 50, justifyContent: 'center' }]}>
+                      <Picker
+                        selectedValue={session.type}
+                        onValueChange={(val) => {
+                          const newS = [...sessions];
+                          newS[index].type = val;
+                          setSessions(newS);
+                        }}
+                        style={{ height: 50, color: "#333" }}
+                      >
+                        <Picker.Item label="Lecture" value="Lecture" />
+                        <Picker.Item label="Lab" value="Lab" />
+                      </Picker>
+                    </View>
                     <TextInput
                       placeholder="ห้องเรียน"
-                      style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                      style={[styles.input, { flex: 1, marginBottom: 0, height: 50 }]}
                       value={session.room}
                       onChangeText={(t) => {
                         const newS = [...sessions];
@@ -883,8 +915,8 @@ const Timetable = ({ navigation }) => {
             <Text style={styles.label}>รหัสวิชา</Text>
             <TextInput style={[styles.input, { backgroundColor: "#EAEAEA", color: "#666" }]} value={`${editingExam?.code} - ${editingExam?.name}`} editable={false} />
             
-            <Text style={styles.label}>ห้องสอบ</Text>
-            <TextInput placeholder="ห้องสอบ" style={styles.input} value={editingExam?.room} onChangeText={(t) => setEditingExam({ ...editingExam, room: t })} />
+            <Text style={styles.label}>ห้องสอบ (ปล่อยว่างได้)</Text>
+            <TextInput placeholder="เช่น รออาจารย์แจ้ง" style={styles.input} value={editingExam?.room} onChangeText={(t) => setEditingExam({ ...editingExam, room: t })} />
 
             <Text style={styles.label}>วันที่สอบ</Text>
             <TouchableOpacity style={styles.pickerButton} onPress={() => openPicker("date")}>
