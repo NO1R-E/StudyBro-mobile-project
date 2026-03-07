@@ -22,7 +22,7 @@ const Planner = () => {
   const [note, setNote] = useState("");
   const [selectedTask, setSelectedTask] = useState(null);
   const [filterCategory, setFilterCategory] = useState("all");
-
+  const [selectedTerm, setSelectedTerm] = useState("");
   // --- States: Date & Time ---
   const [activityDate, setActivityDate] = useState(new Date());
   const [startTime, setStartTime] = useState(new Date());
