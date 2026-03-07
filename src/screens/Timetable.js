@@ -178,13 +178,10 @@ const Timetable = ({ navigation }) => {
 
     // ตรวจสอบค่าว่างของแต่ละคาบเรียน
     for (let i = 0; i < sessions.length; i++) {
-      if (!sessions[i].type.trim() ) {
+      if (!sessions[i].type.trim() || !sessions[i].room.trim()) {
         Alert.alert("กรุณากรอกข้อมูล", `โปรดกรอกประเภท (Lec/Lab) และห้องเรียนในคาบที่ ${i + 1} ให้ครบถ้วน`);
         return;
       }
-      if (!sessions[i].room.trim()) {
-        sessions[i].room = "ติดต่ออาจารย์ผู้สอน"; // กำหนดค่าเริ่มต้นหากห้องว่าง
-      } 
     }
 
     // แยกข้อมูลวิชาเดิมออกก่อน หากกำลังอยู่ในโหมดแก้ไข
@@ -211,7 +208,7 @@ const Timetable = ({ navigation }) => {
     const newEntries = sessions.map((s, index) => ({
       id: s.id.toString().includes(Date.now().toString().substring(0, 5)) ? s.id : Date.now().toString() + index.toString(),
       table: selectedTable,
-      code: subject.code.toUpperCase(), // บันทึกรหัสวิชาเป็นตัวพิมพ์ใหญ่เพื่อความสวยงามและป้องกันปัญหาการเปรียบเทียบ
+      code: subject.code.toUpperCase(), // บันทึกรหัสวิชาเป็นตัวพิมพ์ใหญ่
       name: subject.name,
       sec: subject.sec,
       day: s.day,
@@ -221,10 +218,26 @@ const Timetable = ({ navigation }) => {
       end: formatTime(s.endTime),
     }));
 
+    // 📝 ตรวจสอบเวลาเรียนซ้อนทับกันเองในวิชาเดียวกัน
+    for (let i = 0; i < newEntries.length; i++) {
+      for (let j = i + 1; j < newEntries.length; j++) {
+        if (
+          newEntries[i].day === newEntries[j].day &&
+          isOverlapping(newEntries[i].start, newEntries[i].end, newEntries[j].start, newEntries[j].end)
+        ) {
+          Alert.alert(
+            "เวลาเรียนซ้อนทับกันเอง",
+            `คาบที่ ${i + 1} (${newEntries[i].type}) และคาบที่ ${j + 1} (${newEntries[j].type}) มีเวลาเรียนทับซ้อนกันในวัน${dayLabels[newEntries[i].day]} กรุณาแก้ไขเวลาให้ถูกต้องขอรับ`
+          );
+          return; // บล็อกไม่ให้บันทึก
+        }
+      }
+    }
+
     let isConflictFound = false;
     let conflictMsg = "";
 
-    // ตรวจสอบเวลาซ้อนทับกัน
+    // ตรวจสอบเวลาซ้อนทับกันกับวิชาอื่น
     for (const newEntry of newEntries) {
       const hasClassOverlap = tempTable.some(
         (s) =>
@@ -235,7 +248,7 @@ const Timetable = ({ navigation }) => {
 
       if (hasClassOverlap) {
         isConflictFound = true;
-        conflictMsg = `มีวิชาอื่นซ้อนทับอยู่ในวัน ${dayLabels[newEntry.day]} เวลา ${newEntry.start}-${newEntry.end}`;
+        conflictMsg = `มีวิชาอื่นซ้อนทับอยู่ในวัน${dayLabels[newEntry.day]} เวลา ${newEntry.start}-${newEntry.end}`;
         break;
       }
     }
@@ -807,7 +820,6 @@ const Timetable = ({ navigation }) => {
                     </Picker>
                   </View>
 
-                  {/* 📝 เปลี่ยนจาก TextInput เป็น Dropdown สำหรับ Lecture/Lab */}
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                     <View style={[styles.pickerWrapper, { flex: 1, backgroundColor: "#F1F2F6", borderWidth: 0, height: 50, justifyContent: 'center' }]}>
                       <Picker
