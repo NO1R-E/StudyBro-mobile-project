@@ -68,7 +68,7 @@ const Dashboard = ({ navigation }) => {
   const [subject, setSubject] = useState({
     code: "",
     name: "",
-    sec: "100",
+    sec: "",
   });
 
   const [sessions, setSessions] = useState([
@@ -278,7 +278,7 @@ const Dashboard = ({ navigation }) => {
       );
       return;
     }
-    setSubject({ code: "", name: "", sec: "100" });
+    setSubject({ code: "", name: "", sec: "" });
     setSessions([
       {
         id: Date.now().toString(),
@@ -332,6 +332,7 @@ const Dashboard = ({ navigation }) => {
   };
 
   const handleAddSubject = async () => {
+    // 1. ตรวจสอบค่าว่างของวิชาหลัก
     if (!selectedTableForAdd) {
       Alert.alert("ข้อผิดพลาด", "กรุณาเลือกภาคการศึกษา");
       return;
@@ -348,6 +349,7 @@ const Dashboard = ({ navigation }) => {
       return;
     }
 
+    // 2. ตรวจสอบค่าว่างของแต่ละคาบเรียน
     for (let i = 0; i < sessions.length; i++) {
       if (!sessions[i].type.trim()) {
         Alert.alert(
@@ -361,6 +363,7 @@ const Dashboard = ({ navigation }) => {
       }
     }
 
+    // 3. ตรวจสอบวิชาซ้ำในเทอมเดียวกัน
     const isDuplicateCode = userTable.some(
       (c) =>
         c.code.trim().toUpperCase() === subject.code.trim().toUpperCase() &&
@@ -375,6 +378,7 @@ const Dashboard = ({ navigation }) => {
       return;
     }
 
+    // เตรียมข้อมูลใหม่
     const newEntries = sessions.map((s, index) => ({
       id: s.id.toString().includes(Date.now().toString().substring(0, 5))
         ? s.id
@@ -390,10 +394,41 @@ const Dashboard = ({ navigation }) => {
       end: formatTime(s.endTime),
     }));
 
+    const dayLabels = {
+      Monday: "จันทร์",
+      Tuesday: "อังคาร",
+      Wednesday: "พุธ",
+      Thursday: "พฤหัสบดี",
+      Friday: "ศุกร์",
+      Saturday: "เสาร์",
+      Sunday: "อาทิตย์",
+    };
+
+    // 4. 📝 ตรวจสอบเวลาเรียนซ้อนทับกันเองในวิชาเดียวกัน (Validation ที่เพิ่มเข้ามา)
+    for (let i = 0; i < newEntries.length; i++) {
+      for (let j = i + 1; j < newEntries.length; j++) {
+        if (
+          newEntries[i].day === newEntries[j].day &&
+          isOverlapping(
+            newEntries[i].start,
+            newEntries[i].end,
+            newEntries[j].start,
+            newEntries[j].end,
+          )
+        ) {
+          Alert.alert(
+            "เวลาเรียนซ้อนทับกันเอง",
+            `คาบที่ ${i + 1} (${newEntries[i].type}) และคาบที่ ${j + 1} (${newEntries[j].type}) มีเวลาเรียนทับซ้อนกันในวัน${dayLabels[newEntries[i].day]} กรุณาแก้ไขเวลาให้ถูกต้อง`,
+          );
+          return; // บล็อกไม่ให้บันทึกเหมือนใน Timetable.js
+        }
+      }
+    }
+
+    // 5. ตรวจสอบเวลาซ้อนทับกับวิชาอื่นในตาราง
     let isConflictFound = false;
     let conflictMsg = "";
 
-    // Check conflicts
     for (const newEntry of newEntries) {
       const hasClassOverlap = userTable.some(
         (s) =>
@@ -404,16 +439,7 @@ const Dashboard = ({ navigation }) => {
 
       if (hasClassOverlap) {
         isConflictFound = true;
-        const dayLabels = {
-          Monday: "จันทร์",
-          Tuesday: "อังคาร",
-          Wednesday: "พุธ",
-          Thursday: "พฤหัสบดี",
-          Friday: "ศุกร์",
-          Saturday: "เสาร์",
-          Sunday: "อาทิตย์",
-        };
-        conflictMsg = `มีวิชาอื่นซ้อนทับอยู่ในวัน ${dayLabels[newEntry.day]} เวลา ${newEntry.start}-${newEntry.end}`;
+        conflictMsg = `มีวิชาอื่นซ้อนทับอยู่ในวัน${dayLabels[newEntry.day]} เวลา ${newEntry.start}-${newEntry.end}`;
         break;
       }
     }
@@ -421,7 +447,7 @@ const Dashboard = ({ navigation }) => {
     const executeAdd = () => {
       const updatedTable = [...userTable, ...newEntries];
 
-      // Update Exams
+      // อัปเดตตารางสอบ (Exam List)
       let updatedExams = [...examList];
       const existingExam = updatedExams.find(
         (e) =>
@@ -448,6 +474,7 @@ const Dashboard = ({ navigation }) => {
       Alert.alert("สำเร็จ", "เพิ่มวิชาลงตารางเรียนเรียบร้อยแล้ว");
     };
 
+    // 6. จัดการกรณีเวลาซ้ำซ้อนกับวิชาอื่น (ถามความสมัครใจ)
     if (isConflictFound) {
       Alert.alert(
         "เวลาซ้ำซ้อน",
@@ -1097,7 +1124,10 @@ const Dashboard = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => setModalSubjectVisible(false)}
+                onPress={() => {
+                  setModalSubjectVisible(false);
+                  
+                }}
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
               </TouchableOpacity>
