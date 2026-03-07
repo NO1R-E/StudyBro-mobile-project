@@ -5,6 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
@@ -18,20 +21,67 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Foundation from "@expo/vector-icons/Foundation";
+import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
+
+// นำเข้า Firebase และ helper (กรุณาเช็ค path ให้ตรงกับโปรเจกต์ของคุณ)
+import { doc, setDoc } from "firebase/firestore";
+import { db, auth } from "../../firebaseConfig";
+import isOverlapping from "../helper/isOverlapping";
 
 const Dashboard = ({ navigation }) => {
   const route = useRoute();
   const [userName, setUserName] = useState("ผู้ใช้");
   const [activityFilter, setActivityFilter] = useState("today");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  // ข้อมูลต่างๆ จาก AsyncStorage
   const [userTable, setUserTable] = useState([]);
   const [tableList, setTableList] = useState([]);
   const [examList, setExamList] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
+  // สิ่งที่จะแสดงใน Dashboard
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
-  const [tasks, setTasks] = useState([]);
+
+  // ================= STATE สำหรับ MODAL เพิ่มวิชา =================
+  const [modalSubjectVisible, setModalSubjectVisible] = useState(false);
+  const [selectedTableForAdd, setSelectedTableForAdd] = useState("");
+  const [activePicker, setActivePicker] = useState(null);
+
+  const getDefaultStartTime = () => {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    return d;
+  };
+  const getDefaultEndTime = () => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    return d;
+  };
+
+  const formatTime = (dateObj) =>
+    `${dateObj.getHours().toString().padStart(2, "0")}:${dateObj.getMinutes().toString().padStart(2, "0")}`;
+
+  const [subject, setSubject] = useState({
+    code: "",
+    name: "",
+    sec: "100",
+  });
+
+  const [sessions, setSessions] = useState([
+    {
+      id: Date.now().toString(),
+      day: "Monday",
+      type: "Lecture",
+      room: "",
+      startTime: getDefaultStartTime(),
+      endTime: getDefaultEndTime(),
+    },
+  ]);
+  // ==========================================================
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -49,12 +99,6 @@ const Dashboard = ({ navigation }) => {
     };
     return date.toLocaleDateString("th-TH", options);
   };
-
-  // useEffect(() => {
-  //   calculateNextClass();
-  //   calculateUpcomingExams();
-  //   calculateUpcomingActivities();
-  // }, []);
 
   const loadData = async () => {
     try {
@@ -74,9 +118,13 @@ const Dashboard = ({ navigation }) => {
         setNextClass(null);
       }
 
-      // ===== รายชื่อกลุ่ม =====
+      // ===== รายชื่อกลุ่ม (Semester) =====
       if (savedTableList) {
-        setTableList(JSON.parse(savedTableList));
+        const parsedList = JSON.parse(savedTableList);
+        setTableList(parsedList);
+        if (parsedList.length > 0 && !selectedTableForAdd) {
+          setSelectedTableForAdd(parsedList[0].label); // Set default picker value
+        }
       } else {
         setTableList([]);
       }
@@ -120,23 +168,17 @@ const Dashboard = ({ navigation }) => {
 
   const getMinutesWithOffset = (offsetHours = 0) => {
     const now = new Date();
-    // We add the offset and set minutes to 0 if you want to check "Top of the hour"
-    // or leave as is for a rolling window.
     return (now.getHours() + offsetHours) * 60 + now.getMinutes();
   };
+
   const calculateNextClass = (data = userTable) => {
     if (!data || data.length === 0) return;
     const now = new Date();
     const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
 
-    // Use the helper to define your window
-    const startTimeLimit = getMinutesWithOffset(0); // Current time
-    const endTimeLimit = getMinutesWithOffset(24); // 2 hours from now
+    const startTimeLimit = getMinutesWithOffset(0);
+    const endTimeLimit = getMinutesWithOffset(24);
 
-    // console.log(
-    //   `Searching for classes between minutes: ${startTimeLimit} and ${endTimeLimit}`,
-    // );
-    // console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
     const todayClasses = data
       .filter((c) => c.day === currentDay)
       .map((c) => {
@@ -149,28 +191,22 @@ const Dashboard = ({ navigation }) => {
         }
         return { ...c, startMinutes: h * 60 + m };
       })
-      .filter((c) => {
-        // Flexible window: starts after now, but before the "hour limit"
-        return (
-          c.startMinutes >= startTimeLimit && c.startMinutes <= endTimeLimit
-        );
-      })
+      .filter(
+        (c) =>
+          c.startMinutes >= startTimeLimit && c.startMinutes <= endTimeLimit,
+      )
       .sort((a, b) => a.startMinutes - b.startMinutes);
 
     const result = todayClasses[0] || null;
     setNextClass(result);
-    // console.log("Next class found:", result);
   };
 
-  // คำนวณวันสอบที่ใกล้จะถึง
   const calculateUpcomingExams = (data = examList) => {
     const now = new Date();
-    now.setHours(0, 0, 0, 0); // Set to start of today for comparison
-    // console.log("Current Table Data:\n", JSON.stringify(data, null, 2));
+    now.setHours(0, 0, 0, 0);
     const upcoming = data
       .filter((exam) => {
         if (!exam.examDate) return false;
-        // Parse DD/MM/YYYY or YYYY-MM-DD
         const [day, month, year] = exam.examDate.split("/");
         const examDateObj = new Date(year, month - 1, day);
         return examDateObj >= now;
@@ -184,62 +220,248 @@ const Dashboard = ({ navigation }) => {
       });
 
     setUpcomingExams(upcoming);
-    // console.log(upcoming);
   };
 
   const calculateUpcomingActivities = () => {
     const now = new Date();
-
     const filtered = tasks.filter((activity) => {
       const activityDate = new Date(activity.endTimeMs);
       const isPending = activity.status === "pending";
 
       if (!isPending) return false;
 
-      // 🔹 วันนี้
       if (activityFilter === "today") {
         return activityDate.toDateString() === now.toDateString();
       }
-
-      // 🔹 สัปดาห์นี้
       if (activityFilter === "week") {
         const firstDayOfWeek = new Date(now);
         firstDayOfWeek.setDate(now.getDate() - now.getDay());
-
         const lastDayOfWeek = new Date(firstDayOfWeek);
         lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
-
         return activityDate >= firstDayOfWeek && activityDate <= lastDayOfWeek;
       }
-
-      // 🔹 เดือนนี้
       if (activityFilter === "month") {
         return (
           activityDate.getMonth() === now.getMonth() &&
           activityDate.getFullYear() === now.getFullYear()
         );
       }
-
       return false;
     });
 
     setUpcomingActivities(filtered);
   };
+
   const getEmptyMessage = () => {
-    if (activityFilter === "today") {
-      return "ไม่มีกิจกรรมในวันนี้";
-    }
-    if (activityFilter === "week") {
-      return "ไม่มีกิจกรรมในสัปดาห์นี้";
-    }
-    if (activityFilter === "month") {
-      return "ไม่มีกิจกรรมในเดือนนี้";
-    }
+    if (activityFilter === "today") return "ไม่มีกิจกรรมในวันนี้";
+    if (activityFilter === "week") return "ไม่มีกิจกรรมในสัปดาห์นี้";
+    if (activityFilter === "month") return "ไม่มีกิจกรรมในเดือนนี้";
     return "ไม่มีกิจกรรม";
   };
+
   useEffect(() => {
     calculateUpcomingActivities();
   }, [tasks, activityFilter]);
+
+  // ================= LOGIC สำหรับปุ่มเพิ่มวิชา =================
+  const openAddSubjectModal = () => {
+    if (tableList.length === 0) {
+      Alert.alert(
+        "แจ้งเตือน",
+        "คุณยังไม่ได้สร้างปีการศึกษา กรุณาไปเพิ่มในเมนู 'ตารางเรียน' ก่อนครับ",
+        [
+          {
+            text: "ตกลง",
+            onPress: () => navigation.navigate("Timetable"),
+          },
+        ],
+      );
+      return;
+    }
+    setSubject({ code: "", name: "", sec: "100" });
+    setSessions([
+      {
+        id: Date.now().toString(),
+        day: "Monday",
+        type: "Lecture",
+        room: "",
+        startTime: getDefaultStartTime(),
+        endTime: getDefaultEndTime(),
+      },
+    ]);
+    setModalSubjectVisible(true);
+  };
+
+  const persistSubjectData = async (newTable, newExams) => {
+    try {
+      const timestamp = new Date().toISOString();
+      console.log("Saving to AsyncStorage...", newTable.length, "items"); // เพิ่มบรรทัดนี้
+
+      await AsyncStorage.multiSet([
+        ["user_table", JSON.stringify(newTable)],
+        ["user_exams", JSON.stringify(newExams)],
+        ["last_updated", timestamp],
+      ]);
+
+      if (auth.currentUser) {
+        console.log("Saving to Firestore for user:", auth.currentUser.uid); // เพิ่มบรรทัดนี้
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "timetable",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          {
+            table: newTable,
+            examList: newExams,
+            lastUpdated: timestamp,
+          },
+          { merge: true },
+        );
+        console.log("Firestore Save Success!");
+      }
+
+      loadData();
+    } catch (error) {
+      console.error("Dashboard SAVE ERROR:", error);
+      Alert.alert("Error", "ไม่สามารถบันทึกข้อมูลได้: " + error.message);
+    }
+  };
+
+  const handleAddSubject = async () => {
+    if (!selectedTableForAdd) {
+      Alert.alert("ข้อผิดพลาด", "กรุณาเลือกภาคการศึกษา");
+      return;
+    }
+    if (!subject.code.trim() || !subject.name.trim() || !subject.sec.trim()) {
+      Alert.alert(
+        "กรุณากรอกข้อมูล",
+        "โปรดกรอกรหัสวิชา ชื่อวิชา และหมู่เรียน (SEC) ให้ครบถ้วน",
+      );
+      return;
+    }
+    if (sessions.length === 0) {
+      Alert.alert("กรุณากรอกข้อมูล", "โปรดเพิ่มคาบเรียนอย่างน้อย 1 คาบ");
+      return;
+    }
+
+    for (let i = 0; i < sessions.length; i++) {
+      if (!sessions[i].type.trim()) {
+        Alert.alert(
+          "กรุณากรอกข้อมูล",
+          `โปรดกรอกประเภท (Lec/Lab) และห้องเรียนในคาบที่ ${i + 1} ให้ครบถ้วน`,
+        );
+        return;
+      }
+      if (!sessions[i].room.trim()) {
+        sessions[i].room = "ติดต่ออาจารย์ผู้สอน";
+      }
+    }
+
+    const isDuplicateCode = userTable.some(
+      (c) =>
+        c.code.trim().toUpperCase() === subject.code.trim().toUpperCase() &&
+        c.table === selectedTableForAdd,
+    );
+
+    if (isDuplicateCode) {
+      Alert.alert(
+        "เพิ่มวิชาไม่สำเร็จ",
+        `รหัสวิชา ${subject.code.toUpperCase()} มีอยู่ในตารางเรียนภาคนี้แล้ว หากต้องการแก้ไขกรุณาไปที่เมนูตารางเรียน`,
+      );
+      return;
+    }
+
+    const newEntries = sessions.map((s, index) => ({
+      id: s.id.toString().includes(Date.now().toString().substring(0, 5))
+        ? s.id
+        : Date.now().toString() + index.toString(),
+      table: selectedTableForAdd,
+      code: subject.code.toUpperCase(),
+      name: subject.name,
+      sec: subject.sec,
+      day: s.day,
+      type: s.type,
+      room: s.room,
+      start: formatTime(s.startTime),
+      end: formatTime(s.endTime),
+    }));
+
+    let isConflictFound = false;
+    let conflictMsg = "";
+
+    // Check conflicts
+    for (const newEntry of newEntries) {
+      const hasClassOverlap = userTable.some(
+        (s) =>
+          s.day === newEntry.day &&
+          s.table === selectedTableForAdd &&
+          isOverlapping(newEntry.start, newEntry.end, s.start, s.end),
+      );
+
+      if (hasClassOverlap) {
+        isConflictFound = true;
+        const dayLabels = {
+          Monday: "จันทร์",
+          Tuesday: "อังคาร",
+          Wednesday: "พุธ",
+          Thursday: "พฤหัสบดี",
+          Friday: "ศุกร์",
+          Saturday: "เสาร์",
+          Sunday: "อาทิตย์",
+        };
+        conflictMsg = `มีวิชาอื่นซ้อนทับอยู่ในวัน ${dayLabels[newEntry.day]} เวลา ${newEntry.start}-${newEntry.end}`;
+        break;
+      }
+    }
+
+    const executeAdd = () => {
+      const updatedTable = [...userTable, ...newEntries];
+
+      // Update Exams
+      let updatedExams = [...examList];
+      const existingExam = updatedExams.find(
+        (e) =>
+          e.code === subject.code.toUpperCase() &&
+          e.table === selectedTableForAdd,
+      );
+
+      if (!existingExam) {
+        updatedExams.push({
+          id: subject.code.toUpperCase() + selectedTableForAdd,
+          code: subject.code.toUpperCase(),
+          name: subject.name,
+          section: subject.sec,
+          examDate: "",
+          startTime: "",
+          endTime: "",
+          room: "",
+          table: selectedTableForAdd,
+        });
+      }
+
+      persistSubjectData(updatedTable, updatedExams);
+      setModalSubjectVisible(false);
+      Alert.alert("สำเร็จ", "เพิ่มวิชาลงตารางเรียนเรียบร้อยแล้ว");
+    };
+
+    if (isConflictFound) {
+      Alert.alert(
+        "เวลาซ้ำซ้อน",
+        `${conflictMsg} คุณต้องการบันทึกวิชานี้ลงในตารางหรือไม่?`,
+        [
+          { text: "ยกเลิก", style: "cancel" },
+          { text: "บันทึกต่อไป", onPress: () => executeAdd() },
+        ],
+      );
+    } else {
+      executeAdd();
+    }
+  };
+  // =========================================================
 
   return (
     <ScrollView
@@ -256,7 +478,7 @@ const Dashboard = ({ navigation }) => {
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.quickBtn}
-            onPress={() => navigation.navigate("Timetable")}
+            onPress={openAddSubjectModal} // เปลี่ยนมาเปิด Modal แทน
           >
             <Ionicons name="calendar-outline" size={24} color="#FF748C" />
             <Text style={styles.quickBtnText}>เพิ่มวิชา</Text>
@@ -302,8 +524,8 @@ const Dashboard = ({ navigation }) => {
             style={[
               styles.nextClassCard,
               {
-                backgroundColor: "#FDF2F8", // Pinkish background
-                borderColor: "#FCCEE8", // Pink border
+                backgroundColor: "#FDF2F8",
+                borderColor: "#FCCEE8",
                 borderWidth: 2,
                 borderRadius: 12,
                 padding: 15,
@@ -402,7 +624,7 @@ const Dashboard = ({ navigation }) => {
                 borderWidth: 2,
                 borderRadius: 12,
                 padding: 15,
-                marginBottom: 10, // Added gap between multiple exams
+                marginBottom: 10,
               }}
             >
               <View style={styles.cardHeader}>
@@ -499,15 +721,7 @@ const Dashboard = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             onPress={() => setShowFilterDropdown(!showFilterDropdown)}
-            style={{
-              marginLeft: "auto",
-              backgroundColor: "#F3F3F3",
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 20,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
+            style={styles.filterBtn}
           >
             <Text style={{ marginRight: 5 }}>
               {activityFilter === "today"
@@ -519,20 +733,9 @@ const Dashboard = ({ navigation }) => {
             <MaterialIcons name="keyboard-arrow-down" size={20} />
           </TouchableOpacity>
         </View>
+
         {showFilterDropdown && (
-          <View
-            style={{
-              position: "absolute",
-              top: 45, // ปรับตามตำแหน่ง header
-              right: 0,
-              backgroundColor: "white",
-              borderRadius: 10,
-              paddingVertical: 5,
-              width: 150,
-              elevation: 5, // Android shadow
-              zIndex: 1000, // iOS
-            }}
-          >
+          <View style={styles.dropdownBox}>
             <TouchableOpacity
               style={{ padding: 12 }}
               onPress={() => {
@@ -542,7 +745,6 @@ const Dashboard = ({ navigation }) => {
             >
               <Text>วันนี้</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={{ padding: 12 }}
               onPress={() => {
@@ -552,7 +754,6 @@ const Dashboard = ({ navigation }) => {
             >
               <Text>สัปดาห์นี้</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={{ padding: 12 }}
               onPress={() => {
@@ -564,6 +765,7 @@ const Dashboard = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         )}
+
         {upcomingActivities.length > 0 ? (
           upcomingActivities.map((activity) => (
             <View
@@ -648,6 +850,261 @@ const Dashboard = ({ navigation }) => {
           </View>
         )}
       </View>
+
+      {/* ================= MODAL เพิ่มวิชาเรียน ================= */}
+      <Modal
+        visible={modalSubjectVisible}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { maxHeight: "90%", paddingBottom: 15 },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { marginBottom: 15 }]}>
+              เพิ่มวิชาเรียน
+            </Text>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ flexShrink: 1 }}
+            >
+              {/* เลือก Semester */}
+              <Text style={styles.label}>ภาคการศึกษา</Text>
+              <View style={[styles.pickerWrapper, { marginBottom: 10 }]}>
+                <Picker
+                  selectedValue={selectedTableForAdd}
+                  onValueChange={(val) => setSelectedTableForAdd(val)}
+                  style={{ height: 50 }}
+                >
+                  {tableList.map((item, index) => (
+                    <Picker.Item
+                      key={index}
+                      label={item.label}
+                      value={item.label}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <TextInput
+                placeholder="รหัสวิชา"
+                style={styles.input}
+                value={subject.code}
+                onChangeText={(t) => setSubject({ ...subject, code: t })}
+              />
+              <TextInput
+                placeholder="ชื่อวิชา"
+                style={styles.input}
+                value={subject.name}
+                onChangeText={(t) => setSubject({ ...subject, name: t })}
+              />
+              <TextInput
+                placeholder="หมู่ (SEC)"
+                style={styles.input}
+                value={subject.sec}
+                onChangeText={(t) => setSubject({ ...subject, sec: t })}
+              />
+
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    fontSize: 16,
+                    marginTop: 10,
+                    marginBottom: 10,
+                    color: "#C7005C",
+                  },
+                ]}
+              >
+                คาบเรียน (กดเพิ่มได้หลายคาบ)
+              </Text>
+
+              {sessions.map((session, index) => (
+                <View key={session.id} style={styles.sessionCard}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginBottom: 10,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{ fontFamily: "Inter_700Bold", color: "#C7005C" }}
+                    >
+                      คาบที่ {index + 1}
+                    </Text>
+                    {sessions.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() =>
+                          setSessions(
+                            sessions.filter((s) => s.id !== session.id),
+                          )
+                        }
+                        style={{ padding: 5 }}
+                      >
+                        <Feather name="trash-2" size={18} color="#FF7675" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={session.day}
+                      onValueChange={(val) => {
+                        const newS = [...sessions];
+                        newS[index].day = val;
+                        setSessions(newS);
+                      }}
+                      style={{ height: 50 }}
+                    >
+                      <Picker.Item label="วันจันทร์" value="Monday" />
+                      <Picker.Item label="วันอังคาร" value="Tuesday" />
+                      <Picker.Item label="วันพุธ" value="Wednesday" />
+                      <Picker.Item label="วันพฤหัสบดี" value="Thursday" />
+                      <Picker.Item label="วันศุกร์" value="Friday" />
+                      <Picker.Item label="วันเสาร์" value="Saturday" />
+                      <Picker.Item label="วันอาทิตย์" value="Sunday" />
+                    </Picker>
+                  </View>
+
+                  <View
+                    style={{ flexDirection: "row", gap: 10, marginTop: 10 }}
+                  >
+                    <View
+                      style={[
+                        styles.pickerWrapper,
+                        {
+                          flex: 1,
+                          backgroundColor: "#F1F2F6",
+                          borderWidth: 0,
+                          height: 50,
+                          justifyContent: "center",
+                        },
+                      ]}
+                    >
+                      <Picker
+                        selectedValue={session.type}
+                        onValueChange={(val) => {
+                          const newS = [...sessions];
+                          newS[index].type = val;
+                          setSessions(newS);
+                        }}
+                        style={{ height: 50, color: "#333" }}
+                      >
+                        <Picker.Item label="Lecture" value="Lecture" />
+                        <Picker.Item label="Lab" value="Lab" />
+                      </Picker>
+                    </View>
+                    <TextInput
+                      placeholder="ห้องเรียน"
+                      style={[
+                        styles.input,
+                        { flex: 1, marginBottom: 0, height: 50 },
+                      ]}
+                      value={session.room}
+                      onChangeText={(t) => {
+                        const newS = [...sessions];
+                        newS[index].room = t;
+                        setSessions(newS);
+                      }}
+                    />
+                  </View>
+
+                  <View style={{ flexDirection: "row", marginTop: 10 }}>
+                    <View style={{ flex: 1, marginRight: 5 }}>
+                      <Text style={styles.label}>เวลาเริ่ม</Text>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() =>
+                          setActivePicker({ index, field: "start" })
+                        }
+                      >
+                        <Text style={styles.pickerText}>
+                          {formatTime(session.startTime)}
+                        </Text>
+                        <Ionicons name="time-outline" size={20} color="gray" />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 5 }}>
+                      <Text style={styles.label}>เวลาสิ้นสุด</Text>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setActivePicker({ index, field: "end" })}
+                      >
+                        <Text style={styles.pickerText}>
+                          {formatTime(session.endTime)}
+                        </Text>
+                        <Ionicons name="time-outline" size={20} color="gray" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                style={styles.addSessionBtn}
+                onPress={() =>
+                  setSessions([
+                    ...sessions,
+                    {
+                      id: Date.now().toString(),
+                      day: "Monday",
+                      type: "Lab",
+                      room: "",
+                      startTime: getDefaultStartTime(),
+                      endTime: getDefaultEndTime(),
+                    },
+                  ])
+                }
+              >
+                <Text style={styles.addSessionBtnText}>
+                  + เพิ่มคาบเรียนใหม่ (Lec / Lab)
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {activePicker && (
+              <DateTimePicker
+                value={
+                  sessions[activePicker.index][`${activePicker.field}Time`]
+                }
+                mode="time"
+                display="default"
+                onChange={(e, date) => {
+                  const currentPicker = activePicker;
+                  setActivePicker(null);
+                  if (date) {
+                    const newS = [...sessions];
+                    newS[currentPicker.index][`${currentPicker.field}Time`] =
+                      date;
+                    setSessions(newS);
+                  }
+                }}
+              />
+            )}
+
+            <View style={[styles.modalActions, { marginTop: 15 }]}>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleAddSubject}
+              >
+                <Text style={styles.saveBtnText}>บันทึกวิชา</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setModalSubjectVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>ยกเลิก</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -664,7 +1121,6 @@ const styles = StyleSheet.create({
     color: "#4A4A4A",
     marginHorizontal: 15,
   },
-
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -681,30 +1137,6 @@ const styles = StyleSheet.create({
   timeRange: { color: "#FFF", fontWeight: "600" },
   locationRow: { flexDirection: "row", alignItems: "center" },
   roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
-
-  // Exam List Pink Style
-  examSection: { marginBottom: 25 },
-  examItem: {
-    padding: 10,
-    borderWidth: 1,
-    borderRadius: 10,
-    borderColor: "#da50503b",
-  },
-  examIconBox: {
-    backgroundColor: "#FFF0F3",
-    padding: 10,
-    borderRadius: 14,
-    marginRight: 15,
-  },
-  examInfo: { flex: 1 },
-  examName: { fontSize: 16, color: "#EA3287", fontFamily: "Inter_400Regular" },
-  examDate: {
-    fontSize: 13,
-    color: "#C7005C",
-    marginTop: 2,
-    fontFamily: "Inter_700Bold",
-  },
-  emptyText: { color: "#FFB7C5", fontStyle: "italic", textAlign: "center" },
   quickAddSection: { marginBottom: 40 },
   buttonRow: { flexDirection: "row", justifyContent: "space-between" },
   quickBtn: {
@@ -733,7 +1165,117 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     marginTop: 10,
-  }, // แก้สีพื้นหลังให้อ่านง่าย
+  },
+
+  filterBtn: {
+    marginLeft: "auto",
+    backgroundColor: "#F3F3F3",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dropdownBox: {
+    position: "absolute",
+    top: 45,
+    right: 0,
+    backgroundColor: "white",
+    borderRadius: 10,
+    paddingVertical: 5,
+    width: 150,
+    elevation: 5,
+    zIndex: 1000,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#FFF",
+    padding: 25,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: "#C7005C",
+    textAlign: "center",
+  },
+  input: {
+    backgroundColor: "#F1F2F6",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    fontFamily: "Inter_400Regular",
+  },
+  label: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 5,
+    marginLeft: 5,
+    fontFamily: "Inter_700Bold",
+  },
+  pickerWrapper: {
+    borderWidth: 1.5,
+    borderColor: "#FFDAE0",
+    borderRadius: 15,
+    overflow: "hidden",
+    backgroundColor: "#FFF",
+  },
+  sessionCard: {
+    backgroundColor: "#FDF2F8",
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#FFDAE0",
+  },
+  pickerButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F1F2F6",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+  },
+  pickerText: { color: "#333" },
+  addSessionBtn: {
+    backgroundColor: "#FFF",
+    borderWidth: 1.5,
+    borderColor: "#C7005C",
+    borderStyle: "dashed",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  addSessionBtnText: {
+    color: "#C7005C",
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+  },
+  modalActions: { marginTop: 15 },
+  saveBtn: {
+    backgroundColor: "#C7005C",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  saveBtnText: { color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 },
+  cancelBtn: { padding: 10, alignItems: "center" },
+  cancelBtnText: { color: "#9B7B8E", fontFamily: "Inter_700Bold" },
 });
 
 export default Dashboard;
