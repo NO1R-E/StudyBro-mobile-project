@@ -1,181 +1,371 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from "react-native";
-import { Ionicons, FontAwesome5, AntDesign } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from '@react-native-picker/picker';
-import { useFonts, Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
+import isOverlapping from "../helper/isOverlapping";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
-import isOverlapping from "../helper/isOverlapping";
 
 const Planner = () => {
-  // --- States: UI & Form ---
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [activityName, setActivityName] = useState("");
   const [category, setCategory] = useState("study");
   const [note, setNote] = useState("");
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [filterCategory, setFilterCategory] = useState("all");
+
+  // Planner.js
+  const [allTableData, setAllTableData] = useState([]); // ข้อมูลตารางเรียนทั้งหมด
+  const [uniqueSubjectNames, setUniqueSubjectNames] = useState([]); // รายชื่อวิชาที่ไม่ซ้ำ
+  const [availableSemesters, setAvailableSemesters] = useState([]); // เทอมที่มีวิชานั้นๆ
+  const [selectedSubjectName, setSelectedSubjectName] = useState(""); // วิชาที่เลือกจาก dropdown
+  // เพิ่มต่อจาก State เดิมใน Planner.js
+  const [semesterList, setSemesterList] = useState([]);
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [allSubjects, setAllSubjects] = useState([]); // เก็บวิชาทั้งหมดจากตารางเรียน
+  const [filteredSubjects, setFilteredSubjects] = useState([]); // เก็บวิชาที่กรองตาม Semester
   const [selectedTerm, setSelectedTerm] = useState("");
-  // --- States: Date & Time ---
   const [activityDate, setActivityDate] = useState(new Date());
   const [startTime, setStartTime] = useState(new Date());
-  const [endTime, setEndTime] = useState(new Date(new Date().setHours(new Date().getHours() + 1)));
+  const [endTime, setEndTime] = useState(
+    new Date(new Date().setHours(new Date().getHours() + 1)),
+  );
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
-  // --- States: Data (Tasks & Timetable) ---
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [filterCategory, setFilterCategory] = useState("all");
+
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_700Bold,
+  });
+
   const [tasks, setTasks] = useState([]);
-  const [allSubjects, setAllSubjects] = useState([]); // วิชาทั้งหมดจากตารางเรียน
-  const [semesterList, setSemesterList] = useState([]); // รายการเทอม
-  const [selectedSemester, setSelectedSemester] = useState("");
-  const [filteredSubjects, setFilteredSubjects] = useState([]); // วิชาที่กรองตามเทอม
-  const [selectedSubjectName, setSelectedSubjectName] = useState("");
 
-  const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_700Bold });
+  // อัปเดตเวลาปัจจุบัน
+  //const [currentTime, setCurrentTime] = useState(Date.now());
 
-  // 1. ฟังก์ชันบันทึกข้อมูล (ลงเครื่อง และ Firebase)
+  //ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
+
   const persistTasks = async (newTasks) => {
     try {
       const timestamp = new Date().toISOString();
+
+      // Update Local Storage
       await AsyncStorage.multiSet([
         ["myTasks", JSON.stringify(newTasks)],
         ["last_updated_planner", timestamp],
       ]);
 
+      // Update Firestore if user is logged in
       if (auth.currentUser) {
-        const userDocRef = doc(db, "users", auth.currentUser.uid, "planner", "data");
-        await setDoc(userDocRef, { tasks: newTasks, lastUpdated: timestamp }, { merge: true });
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "planner",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          {
+            tasks: newTasks,
+            lastUpdated: timestamp,
+          },
+          { merge: true },
+        );
       }
+      console.log("DEBUG: Firestore activity updated successfully.");
     } catch (error) {
       console.error("Sync Error:", error);
     }
   };
 
-  // 2. ดึงข้อมูลครั้งแรกเมื่อหน้าจอถูก Focus (ดึงทั้ง Tasks และ ข้อมูลตารางเรียน)
   useFocusEffect(
     useCallback(() => {
-      const loadAllData = async () => {
+      const loadAndSync = async () => {
         try {
-          // โหลดกิจกรรม (Tasks)
+          // Pull local data
           const localTasks = await AsyncStorage.getItem("myTasks");
           const localTS = await AsyncStorage.getItem("last_updated_planner");
-          if (localTasks) setTasks(JSON.parse(localTasks));
 
-          // โหลดตารางเรียนเพื่อนำมาใช้เลือกใน Planner
-          const localTable = await AsyncStorage.getItem("user_table");
-          const localList = await AsyncStorage.getItem("user_table_list");
-          if (localTable) setAllSubjects(JSON.parse(localTable));
-          if (localList) setSemesterList(JSON.parse(localList));
+          if (localTasks) {
+            setTasks(JSON.parse(localTasks));
+          }
 
-          // ตรวจสอบ Sync กับ Firebase (ถ้า Cloud ใหม่กว่าให้ใช้ Cloud)
           if (auth.currentUser) {
-            const userDocRef = doc(db, "users", auth.currentUser.uid, "planner", "data");
+            const userDocRef = doc(
+              db,
+              "users",
+              auth.currentUser.uid,
+              "planner",
+              "data",
+            );
             const docSnap = await getDoc(userDocRef);
+
             if (docSnap.exists()) {
               const cloudData = docSnap.data();
-              if (!localTS || new Date(cloudData.lastUpdated) > new Date(localTS)) {
+              const cloudTS = cloudData.lastUpdated;
+
+              // Logic: If Cloud is newer than Local, or Local doesn't exist
+              const isCloudNewer =
+                !localTS || new Date(cloudTS) > new Date(localTS);
+
+              if (isCloudNewer) {
                 setTasks(cloudData.tasks || []);
-                await AsyncStorage.setItem("myTasks", JSON.stringify(cloudData.tasks));
-                await AsyncStorage.setItem("last_updated_planner", cloudData.lastUpdated);
+                await AsyncStorage.multiSet([
+                  ["myTasks", JSON.stringify(cloudData.tasks)],
+                  ["last_updated_planner", cloudTS],
+                ]);
               }
             }
           }
         } catch (error) {
+          console.error("Load Sync Error:", error);
+        }
+      };
+
+      loadAndSync();
+    }, []),
+  );
+  useFocusEffect(
+    useCallback(() => {
+      const loadTimetableData = async () => {
+        try {
+          const localTable = await AsyncStorage.getItem("user_table");
+          const localList = await AsyncStorage.getItem("user_table_list");
+
+          if (localList) setSemesterList(JSON.parse(localList));
+          if (localTable) setAllSubjects(JSON.parse(localTable));
+        } catch (error) {
+          console.error("Load Timetable Error:", error);
+        }
+      };
+      loadTimetableData();
+      // ... โค้ดเดิมที่โหลด Tasks ...
+    }, [])
+  );
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        try {
+          // โหลดข้อมูล Planner เดิม
+          const storedTasks = await AsyncStorage.getItem("user_tasks");
+          if (storedTasks) setTasks(JSON.parse(storedTasks));
+
+          // โหลดข้อมูลจาก Timetable
+          const localTable = await AsyncStorage.getItem("user_table");
+          const localList = await AsyncStorage.getItem("user_table_list");
+
+          if (localTable) setAllTableData(JSON.parse(localTable));
+          if (localList) setSemesterList(JSON.parse(localList));
+        } catch (error) {
           console.error("Load Data Error:", error);
         }
       };
-      loadAllData();
+      loadData();
     }, [])
   );
-
-  // 3. กรองรายชื่อวิชาเมื่อมีการเลือกเทอม (Semester)
   useEffect(() => {
     if (selectedSemester) {
+      // กรองวิชาที่มีใน Semester ที่เลือก (เอาเฉพาะชื่อวิชาที่ไม่ซ้ำกัน)
       const subjectsInTerm = allSubjects.filter(s => s.table === selectedSemester);
-      const uniqueNames = Array.from(new Set(subjectsInTerm.map(s => s.name)));
-      setFilteredSubjects(uniqueNames);
+      const uniqueSubjects = Array.from(new Set(subjectsInTerm.map(s => s.name)))
+        .map(name => subjectsInTerm.find(s => s.name === name));
+      setFilteredSubjects(uniqueSubjects);
     } else {
       setFilteredSubjects([]);
     }
   }, [selectedSemester, allSubjects]);
+  useEffect(() => {
+    if (selectedSemester) {
+      // กรองวิชาที่มีชื่อเทอมตรงกับที่เลือก
+      const subjectsInTerm = allTableData.filter(item => item.table === selectedSemester);
+      // เอาเฉพาะชื่อวิชาที่ไม่ซ้ำกัน
+      const uniqueNames = Array.from(new Set(subjectsInTerm.map(s => s.name)));
+      setFilteredSubjects(uniqueNames);
+    } else {
+      setFilteredSubjects([]);
+      setSelectedSubjectName("");
+    }
+  }, [selectedSemester, allTableData]);
+  useEffect(() => {
+    if (allSubjects.length > 0) {
 
-  // --- Helper Functions ---
-  const formatDate = (date) => `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}/${date.getFullYear()}`;
-  const formatTime = (date) => `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+      // ดึงชื่อวิชาไม่ซ้ำ
+      const uniqueNames = [...new Set(allSubjects.map(s => s.name))];
+      setUniqueSubjectNames(uniqueNames);
 
-  // 4. บันทึกกิจกรรมใหม่
+      // ดึง semester ไม่ซ้ำ
+      const semesters = [...new Set(allSubjects.map(s => s.table))];
+      setAvailableSemesters(semesters);
+    }
+  }, [allSubjects]);
+
+  const toggleTaskStatus = (id) => {
+    const updatedTasks = tasks.map((task) => {
+      if (task.id === id) {
+        let nextStatus = "pending";
+        if (task.status === "pending") nextStatus = "completed";
+        else if (task.status === "completed") nextStatus = "missed";
+        else if (task.status === "missed") nextStatus = "pending";
+        return { ...task, status: nextStatus };
+      }
+      return task;
+    });
+    setTasks(updatedTasks);
+    persistTasks(updatedTasks);
+  };
+
+  const activeTasks = tasks.filter((task) => {
+    if (task.status !== "pending") return false;
+    if (filterCategory !== "all" && task.category !== filterCategory)
+      return false;
+    return true;
+  });
+
+  const totalCount = tasks.length;
+  const completedCount = tasks.filter(
+    (item) => item.status === "completed",
+  ).length;
+  const missedCount = tasks.filter((item) => item.status === "missed").length;
+
+  const completedPercent =
+    totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const missedPercent = totalCount > 0 ? (missedCount / totalCount) * 100 : 0;
+
+  const formatDate = (dateObj) =>
+    `${dateObj.getDate().toString().padStart(2, "0")}/${(dateObj.getMonth() + 1).toString().padStart(2, "0")}/${dateObj.getFullYear()}`;
+  const formatTime = (dateObj) =>
+    `${dateObj.getHours().toString().padStart(2, "0")}:${dateObj.getMinutes().toString().padStart(2, "0")}`;
+
+  // ใน Planner.js
   const handleSaveActivity = async () => {
-    if (!activityName.trim()) return Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
+    if (!activityName.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
+      return;
+    }
 
     const newStart = formatTime(startTime);
     const newEnd = formatTime(endTime);
     const dateStr = formatDate(activityDate);
-    const dayName = activityDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayName = activityDate.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
 
     const executeSave = async () => {
-      const newTask = {
-        id: Date.now().toString(),
-        title: activityName.trim(),
-        timeString: `${newStart} - ${newEnd}`,
-        dateString: dateStr,
-        category,
-        note,
-        status: "pending",
-      };
-      const updatedTasks = [...tasks, newTask];
-      setTasks(updatedTasks);
-      await persistTasks(updatedTasks);
-      setModalVisible(false);
-      resetForm();
+      try {
+        const finalActivityDate = new Date(activityDate);
+        finalActivityDate.setHours(
+          endTime.getHours(),
+          endTime.getMinutes(),
+          0,
+          0,
+        );
+
+        const newTask = {
+          id: Date.now().toString(),
+          title: activityName.trim(),
+          timeString: `${newStart} - ${newEnd}`,
+          dateString: dateStr,
+          category,
+          note,
+          status: "pending",
+          endTimeMs: finalActivityDate.getTime(),
+        };
+
+        const updatedTasks = [...tasks, newTask];
+        setTasks(updatedTasks);
+
+        // Call the new sync function
+        await persistTasks(updatedTasks);
+
+        setActivityName("");
+        setNote("");
+        setModalVisible(false);
+      } catch (error) {
+        Alert.alert("Error", "ไม่สามารถบันทึกได้");
+      }
     };
 
-    // เช็คเวลาซ้ำซ้อน
-    const hasConflict = tasks.some(t => t.dateString === dateStr && isOverlapping(newStart, newEnd, t.timeString.split(" - ")[0], t.timeString.split(" - ")[1]));
-    if (hasConflict) {
-      Alert.alert("เวลาซ้ำซ้อน", "เวลานี้มีกิจกรรมอื่นอยู่แล้ว ต้องการบันทึกหรือไม่?", [
+    const hasActivityConflict = tasks.some(
+      (t) =>
+        t.dateString === dateStr &&
+        isOverlapping(
+          newStart,
+          newEnd,
+          t.timeString.split(" - ")[0],
+          t.timeString.split(" - ")[1],
+        ),
+    );
+
+    const savedTable = await AsyncStorage.getItem("user_table");
+    const classes = savedTable ? JSON.parse(savedTable) : [];
+    const classConflict = classes.find(
+      (c) =>
+        c.day === dayName && isOverlapping(newStart, newEnd, c.start, c.end),
+    );
+
+    if (hasActivityConflict || classConflict) {
+      const message = classConflict
+        ? `เวลานี้ตรงกับวิชา ${classConflict.name} คุณต้องการบันทึกกิจกรรมซ้อนลงไปหรือไม่?`
+        : "เวลานี้มีกิจกรรมอื่นอยู่แล้ว คุณต้องการบันทึกซ้อนลงไปหรือไม่?";
+
+      Alert.alert("เวลาซ้ำซ้อน", message, [
         { text: "ยกเลิก", style: "cancel" },
-        { text: "บันทึก", onPress: executeSave },
+        { text: "ยืนยันการบันทึก", onPress: () => executeSave() },
       ]);
     } else {
       executeSave();
     }
   };
 
-  const resetForm = () => {
-    setActivityName("");
-    setNote("");
-    setSelectedSemester("");
-    setSelectedSubjectName("");
+  const openTaskDetails = (task) => {
+    setSelectedTask(task);
+    setDetailsModalVisible(true);
   };
 
-  const toggleTaskStatus = (id) => {
-    const updated = tasks.map(t => {
-      if (t.id === id) {
-        const next = t.status === "pending" ? "completed" : t.status === "completed" ? "missed" : "pending";
-        return { ...t, status: next };
-      }
-      return t;
-    });
-    setTasks(updated);
-    persistTasks(updated);
+  const handleDeleteTask = (taskId) => {
+    Alert.alert("ยืนยันการลบ", "คุณแน่ใจหรือไม่ว่าต้องการลบกิจกรรมนี้?", [
+      { text: "ยกเลิก", style: "cancel" },
+      {
+        text: "ลบกิจกรรม",
+        onPress: () => {
+          const updatedTasks = tasks.filter((task) => task.id !== taskId);
+          setTasks(updatedTasks);
+          persistTasks(updatedTasks); // Sync deletion
+          setDetailsModalVisible(false);
+          setSelectedTask(null);
+        },
+        style: "destructive",
+      },
+    ]);
   };
-
-  // --- การคำนวณ Progress ---
-  const activeTasks = tasks.filter(t => t.status === "pending" && (filterCategory === "all" || t.category === filterCategory));
-  const completedCount = tasks.filter(t => t.status === "completed").length;
-  const missedCount = tasks.filter(t => t.status === "missed").length;
-  const completedPercent = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
-  const missedPercent = tasks.length > 0 ? (missedCount / tasks.length) * 100 : 0;
-
-  if (!fontsLoaded) return null;
 
   return (
     <View style={styles.container}>
