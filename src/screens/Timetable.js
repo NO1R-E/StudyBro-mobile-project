@@ -70,7 +70,7 @@ const Timetable = ({ navigation }) => {
   const [subject, setSubject] = useState({
     code: "",
     name: "",
-    sec: "100",
+    sec: "",
   });
 
   // ข้อมูลคาบเรียน
@@ -126,7 +126,7 @@ const Timetable = ({ navigation }) => {
   const openAddSubjectModal = (day) => {
     setIsEditingSubject(false);
     setEditingSubjectOriginalCode(null);
-    setSubject({ code: "", name: "", sec: "100" });
+    setSubject({ code: "", name: "", sec: "" });
     setSessions([
       {
         id: Date.now().toString(),
@@ -302,7 +302,7 @@ const Timetable = ({ navigation }) => {
       setModalSubjectVisible(false);
       setIsEditingSubject(false);
       setEditingSubjectOriginalCode(null);
-      setSubject({ code: "", name: "", sec: "100" });
+      setSubject({ code: "", name: "", sec: "" });
     };
 
     try {
@@ -386,7 +386,7 @@ const Timetable = ({ navigation }) => {
               id: c.code + c.table,
               code: c.code,
               name: c.name,
-              section: c.sec || "100",
+              section: c.sec || "",
               examDate: "",
               startTime: "",
               endTime: "",
@@ -774,9 +774,10 @@ const Timetable = ({ navigation }) => {
 
       {/* ================= โหมดตารางเรียน ================= */}
       {mode === "class" && (
-        <ScrollView
-          style={styles.listArea}
+        <ScrollView 
+          style={styles.listArea} 
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }} // เพิ่มบรรทัดนี้ลงไปเพื่อดันวันอาทิตย์ขึ้นมา
         >
           {days.map((day) => {
             const dailyClasses = table.filter(
