@@ -404,13 +404,13 @@ const Profile = () => {
               {userEmail || "กำลังโหลด..."}
             </Text>
           </View>
-
-          <View style={styles.infoRow}>
+<View style={styles.infoRow}>
             <Text style={styles.label}>ชื่อ-นามสกุล</Text>
             {isEditing ? (
               <TextInput
                 style={styles.input}
                 value={profile.name}
+                maxLength={100}
                 onChangeText={(t) => setProfile({ ...profile, name: t })}
                 placeholder="กรอกชื่อ-นามสกุล"
                 placeholderTextColor="#FFB3C6"
@@ -427,9 +427,9 @@ const Profile = () => {
                 style={styles.input}
                 value={profile.studentId}
                 keyboardType="numeric"
-                maxLength={10}
+                maxLength={13} 
                 onChangeText={(t) => {
-                  const onlyNumbers = t.replace(/[^0-9]/g, "");
+                  const onlyNumbers = t.replace(/[^0-9]/g, ""); 
                   setProfile({ ...profile, studentId: onlyNumbers });
                 }}
                 placeholder="กรอกรหัสนิสิต"
