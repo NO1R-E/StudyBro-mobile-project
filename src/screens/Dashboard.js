@@ -8,6 +8,8 @@ import {
   Modal,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
@@ -81,6 +83,38 @@ const Dashboard = ({ navigation }) => {
       endTime: getDefaultEndTime(),
     },
   ]);
+  // ==========================================================
+
+  // ================= STATE สำหรับ MODAL เพิ่มงาน =================
+  const [modalTaskVisible, setModalTaskVisible] = useState(false);
+  const [activityName, setActivityName] = useState("");
+  const [category, setCategory] = useState("study");
+  const [note, setNote] = useState("");
+  const [activityDate, setActivityDate] = useState(new Date());
+  const [startTime, setStartTime] = useState(getDefaultStartTime());
+  const [endTime, setEndTime] = useState(getDefaultEndTime());
+  
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+
+  const [selectedSemesterForTask, setSelectedSemesterForTask] = useState("");
+  const [selectedSubjectForTask, setSelectedSubjectForTask] = useState("");
+  const [filteredSubjectsForTask, setFilteredSubjectsForTask] = useState([]);
+
+  const formatDate = (dateObj) =>
+    `${dateObj.getDate().toString().padStart(2, "0")}/${(dateObj.getMonth() + 1).toString().padStart(2, "0")}/${dateObj.getFullYear()}`;
+
+  useEffect(() => {
+    if (selectedSemesterForTask) {
+      const subjectsInTerm = userTable.filter((s) => s.table === selectedSemesterForTask);
+      const uniqueSubjects = Array.from(new Set(subjectsInTerm.map((s) => s.name)))
+        .map((name) => subjectsInTerm.find((s) => s.name === name));
+      setFilteredSubjectsForTask(uniqueSubjects);
+    } else {
+      setFilteredSubjectsForTask([]);
+    }
+  }, [selectedSemesterForTask, userTable]);
   // ==========================================================
 
   const [fontsLoaded] = useFonts({
@@ -421,7 +455,7 @@ const Dashboard = ({ navigation }) => {
       Sunday: "อาทิตย์",
     };
 
-    // 4. 📝 ตรวจสอบเวลาเรียนซ้อนทับกันเองในวิชาเดียวกัน (Validation ที่เพิ่มเข้ามา)
+    // 4. ตรวจสอบเวลาเรียนซ้อนทับกันเองในวิชาเดียวกัน (Validation ที่เพิ่มเข้ามา)
     for (let i = 0; i < newEntries.length; i++) {
       for (let j = i + 1; j < newEntries.length; j++) {
         if (
@@ -505,6 +539,88 @@ const Dashboard = ({ navigation }) => {
       executeAdd();
     }
   };
+
+  // ================= LOGIC สำหรับปุ่มเพิ่มงาน =================
+  const persistTasks = async (newTasks) => {
+    try {
+      const timestamp = new Date().toISOString();
+      await AsyncStorage.multiSet([
+        ["myTasks", JSON.stringify(newTasks)],
+        ["last_updated_planner", timestamp],
+      ]);
+      if (auth.currentUser) {
+        const userDocRef = doc(db, "users", auth.currentUser.uid, "planner", "data");
+        await setDoc(userDocRef, { tasks: newTasks, lastUpdated: timestamp }, { merge: true });
+      }
+      loadData(); // ดึงข้อมูลมาแสดงใหม่บน Dashboard ทันที
+    } catch (error) {
+      console.error("Sync Error:", error);
+    }
+  };
+
+  const handleSaveTask = async () => {
+    if (!activityName.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
+      return;
+    }
+
+    const newStart = formatTime(startTime);
+    const newEnd = formatTime(endTime);
+    const dateStr = formatDate(activityDate);
+    const dayName = activityDate.toLocaleDateString("en-US", { weekday: "long" });
+
+    const executeSave = async () => {
+      try {
+        const finalActivityDate = new Date(activityDate);
+        finalActivityDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+
+        const taskData = {
+          id: Date.now().toString(),
+          title: activityName.trim(),
+          timeString: `${newStart} - ${newEnd}`,
+          dateString: dateStr,
+          category,
+          note,
+          status: "pending",
+          endTimeMs: finalActivityDate.getTime(),
+        };
+
+        const updatedTasks = [...tasks, taskData];
+        setTasks(updatedTasks);
+        await persistTasks(updatedTasks);
+
+        setActivityName("");
+        setNote("");
+        setModalTaskVisible(false);
+        Alert.alert("สำเร็จ", "เพิ่มกิจกรรมเรียบร้อยแล้ว");
+      } catch (error) {
+        Alert.alert("Error", "ไม่สามารถบันทึกได้");
+      }
+    };
+
+    const hasActivityConflict = tasks.some(
+      (t) =>
+        t.dateString === dateStr &&
+        isOverlapping(newStart, newEnd, t.timeString.split(" - ")[0], t.timeString.split(" - ")[1])
+    );
+
+    const classConflict = userTable.find(
+      (c) => c.day === dayName && isOverlapping(newStart, newEnd, c.start, c.end)
+    );
+
+    if (hasActivityConflict || classConflict) {
+      const message = classConflict
+        ? `เวลานี้ตรงกับวิชา ${classConflict.name} คุณต้องการบันทึกซ้อนลงไปหรือไม่?`
+        : "เวลานี้มีกิจกรรมอื่นอยู่แล้ว คุณต้องการบันทึกซ้อนลงไปหรือไม่?";
+
+      Alert.alert("เวลาซ้ำซ้อน", message, [
+        { text: "ยกเลิก", style: "cancel" },
+        { text: "ยืนยันการบันทึก", onPress: () => executeSave() },
+      ]);
+    } else {
+      executeSave();
+    }
+  };
   // =========================================================
 
   return (
@@ -522,14 +638,14 @@ const Dashboard = ({ navigation }) => {
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.quickBtn}
-            onPress={openAddSubjectModal} // เปลี่ยนมาเปิด Modal แทน
+            onPress={openAddSubjectModal}
           >
             <Ionicons name="calendar-outline" size={24} color="#FF748C" />
             <Text style={styles.quickBtnText}>เพิ่มวิชา</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickBtn}
-            onPress={() => navigation.navigate("Planner")}
+            onPress={() => setModalTaskVisible(true)}
           >
             <Ionicons name="heart-outline" size={24} color="#FF748C" />
             <Text style={styles.quickBtnText}>เพิ่มงาน</Text>
@@ -1162,6 +1278,96 @@ const Dashboard = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* ================= MODAL เพิ่มงาน ================= */}
+      <Modal animationType="fade" transparent={true} visible={modalTaskVisible} onRequestClose={() => setModalTaskVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>เพิ่มกิจกรรมใหม่</Text>
+            
+            <Text style={styles.label}>ชื่อกิจกรรม</Text>
+            <TextInput style={styles.input} placeholder="ชื่อกิจกรรม (เช่น ส่งใบงาน)" value={activityName} onChangeText={setActivityName} />
+
+            <Text style={styles.label}>หมวดหมู่กิจกรรม</Text>
+            <View style={styles.categoryRow}>
+              <TouchableOpacity style={[styles.categoryButton, category === "study" && styles.categoryButtonActive]} onPress={() => setCategory("study")}>
+                <Text style={[styles.categoryText, category === "study" && styles.categoryTextActive]}>📖 วิชาเรียน</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.categoryButton, category === "other" && styles.categoryButtonActive]} onPress={() => { setCategory("other"); setSelectedSubjectForTask(""); setSelectedSemesterForTask(""); }}>
+                <Text style={[styles.categoryText, category === "other" && styles.categoryTextActive]}>⚽️ อื่นๆ</Text>
+              </TouchableOpacity>
+            </View>
+
+            {category === "study" && (
+              <>
+                <Text style={styles.label}>เลือกปีการศึกษา (Semester)</Text>
+                <View style={[styles.pickerWrapper, { marginBottom: 10, backgroundColor: "#F1F2F6", borderWidth: 0 }]}>
+                  <Picker selectedValue={selectedSemesterForTask} onValueChange={(val) => { setSelectedSemesterForTask(val); setNote(`ปีการศึกษา: ${val}`); }}>
+                    <Picker.Item label="-- เลือกเทอม --" value="" />
+                    {tableList.map((item, index) => (
+                      <Picker.Item key={index} label={item.label} value={item.label} />
+                    ))}
+                  </Picker>
+                </View>
+
+                {selectedSemesterForTask !== "" && (
+                  <>
+                    <Text style={styles.label}>เลือกวิชาในเทอมนี้</Text>
+                    <View style={[styles.pickerWrapper, { marginBottom: 10, backgroundColor: "#F1F2F6", borderWidth: 0 }]}>
+                      <Picker selectedValue={selectedSubjectForTask} onValueChange={(val) => { setSelectedSubjectForTask(val); setActivityName(val); }}>
+                        <Picker.Item label="-- เลือกรายวิชา --" value="" />
+                        {filteredSubjectsForTask.map((item, index) => (
+                          <Picker.Item key={index} label={item.name} value={item.name} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+
+            <Text style={styles.label}>รายละเอียดเพิ่มเติม</Text>
+            <TextInput style={[styles.input, { height: 80, textAlignVertical: "top" }]} placeholder="จดบันทึกรายละเอียด..." multiline value={note} onChangeText={setNote} />
+
+            <Text style={styles.label}>วันที่</Text>
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowDatePicker(true)}>
+              <Text style={styles.pickerText}>{formatDate(activityDate)}</Text>
+              <Ionicons name="calendar-outline" size={20} color="gray" />
+            </TouchableOpacity>
+
+            <View style={styles.rowInputs}>
+              <View style={{ flex: 1, marginRight: 5 }}>
+                <Text style={styles.label}>เวลาเริ่ม</Text>
+                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowStartTimePicker(true)}>
+                  <Text style={styles.pickerText}>{formatTime(startTime)}</Text>
+                  <Ionicons name="time-outline" size={20} color="gray" />
+                </TouchableOpacity>
+              </View>
+              <View style={{ flex: 1, marginLeft: 5 }}>
+                <Text style={styles.label}>เวลาสิ้นสุด</Text>
+                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowEndTimePicker(true)}>
+                  <Text style={styles.pickerText}>{formatTime(endTime)}</Text>
+                  <Ionicons name="time-outline" size={20} color="gray" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {showDatePicker && <DateTimePicker value={activityDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setActivityDate(d); }} />}
+            {showStartTimePicker && <DateTimePicker value={startTime} mode="time" display="default" onChange={(e, t) => { setShowStartTimePicker(false); if (t) setStartTime(t); }} />}
+            {showEndTimePicker && <DateTimePicker value={endTime} mode="time" display="default" onChange={(e, t) => { setShowEndTimePicker(false); if (t) setEndTime(t); }} />}
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalTaskVisible(false)}>
+                <Text style={styles.cancelButtonText}>ยกเลิก</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveTask}>
+                <Text style={styles.saveButtonText}>บันทึกงาน</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </ScrollView>
   );
 };
@@ -1333,6 +1539,17 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 },
   cancelBtn: { padding: 10, alignItems: "center" },
   cancelBtnText: { color: "#9B7B8E", fontFamily: "Inter_700Bold" },
+  
+  // Styles สำหรับ Modal เพิ่มงาน
+  categoryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
+  categoryButton: { flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: "#EEEEEE", alignItems: "center", marginHorizontal: 5, backgroundColor: "#F1F2F6" },
+  categoryButtonActive: { backgroundColor: "#FCE4EC", borderColor: "#E91E63" },
+  categoryText: { fontSize: 13, color: "#9E9E9E", fontFamily: "Inter_700Bold" },
+  categoryTextActive: { color: "#C7005C" },
+  rowInputs: { flexDirection: "row" },
+  modalButtonRow: { flexDirection: "row", marginTop: 15 },
+  cancelButton: { flex: 1, backgroundColor: "#F1F2F6", padding: 15, borderRadius: 12, marginRight: 5, alignItems: "center" },
+  saveButton: { flex: 1, backgroundColor: "#C7005C", padding: 15, borderRadius: 12, marginLeft: 5, alignItems: "center" },
 });
 
 export default Dashboard;
