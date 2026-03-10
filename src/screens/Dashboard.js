@@ -224,6 +224,7 @@ const Dashboard = ({ navigation }) => {
 
   const calculateUpcomingActivities = () => {
     const now = new Date();
+
     const filtered = tasks.filter((activity) => {
       const activityDate = new Date(activity.endTimeMs);
       const isPending = activity.status === "pending";
@@ -233,19 +234,34 @@ const Dashboard = ({ navigation }) => {
       if (activityFilter === "today") {
         return activityDate.toDateString() === now.toDateString();
       }
+
       if (activityFilter === "week") {
         const firstDayOfWeek = new Date(now);
         firstDayOfWeek.setDate(now.getDate() - now.getDay());
+
         const lastDayOfWeek = new Date(firstDayOfWeek);
         lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+
         return activityDate >= firstDayOfWeek && activityDate <= lastDayOfWeek;
       }
+
+      if (activityFilter === "nextWeek") {
+        const start = new Date(now);
+        start.setDate(now.getDate() + 7); // เริ่มอีก 7 วันข้างหน้า
+
+        const end = new Date(now);
+        end.setDate(now.getDate() + 14); // สิ้นสุดอีก 14 วัน
+
+        return activityDate >= start && activityDate <= end;
+      }
+
       if (activityFilter === "month") {
         return (
           activityDate.getMonth() === now.getMonth() &&
           activityDate.getFullYear() === now.getFullYear()
         );
       }
+
       return false;
     });
 
@@ -255,6 +271,7 @@ const Dashboard = ({ navigation }) => {
   const getEmptyMessage = () => {
     if (activityFilter === "today") return "ไม่มีกิจกรรมในวันนี้";
     if (activityFilter === "week") return "ไม่มีกิจกรรมในสัปดาห์นี้";
+    if (activityFilter === "nextWeek") return "ไม่มีกิจกรรมในสัปดาห์หน้า";
     if (activityFilter === "month") return "ไม่มีกิจกรรมในเดือนนี้";
     return "ไม่มีกิจกรรม";
   };
@@ -755,7 +772,9 @@ const Dashboard = ({ navigation }) => {
                 ? "วันนี้"
                 : activityFilter === "week"
                   ? "สัปดาห์นี้"
-                  : "เดือนนี้"}
+                  : activityFilter === "nextWeek"
+                    ? "สัปดาห์ถัดไป"
+                    : "เดือนนี้"}
             </Text>
             <MaterialIcons name="keyboard-arrow-down" size={20} />
           </TouchableOpacity>
@@ -780,6 +799,15 @@ const Dashboard = ({ navigation }) => {
               }}
             >
               <Text>สัปดาห์นี้</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ padding: 12 }}
+              onPress={() => {
+                setActivityFilter("nextWeek");
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text>สัปดาห์ถัดไป</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{ padding: 12 }}
@@ -1126,7 +1154,6 @@ const Dashboard = ({ navigation }) => {
                 style={styles.cancelBtn}
                 onPress={() => {
                   setModalSubjectVisible(false);
-                  
                 }}
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
