@@ -34,6 +34,9 @@ const Timetable = ({ navigation }) => {
   const [modalTableVisible, setModalTableVisible] = useState(false);
   const [modalSubjectVisible, setModalSubjectVisible] = useState(false);
   const [modalExamEditVisible, setModalExamEditVisible] = useState(false);
+  
+  // สถานะสำหรับเปิด/ปิดการแสดงผลวิชาที่ถูกซ่อน
+  const [showHiddenExams, setShowHiddenExams] = useState(false);
 
   // จัดการสถานะการแก้ไขวิชา
   const [isEditingSubject, setIsEditingSubject] = useState(false);
@@ -178,7 +181,6 @@ const Timetable = ({ navigation }) => {
   };
 
   const handleAddSubject = async () => {
-    // ตรวจสอบค่าว่างของวิชาหลัก
     if (!subject.code.trim() || !subject.name.trim() || !subject.sec.trim()) {
       Alert.alert(
         "กรุณากรอกข้อมูล",
@@ -191,7 +193,6 @@ const Timetable = ({ navigation }) => {
       return;
     }
 
-    // ตรวจสอบค่าว่างของแต่ละคาบเรียน
     for (let i = 0; i < sessions.length; i++) {
       if (!sessions[i].type.trim()) {
         Alert.alert(
@@ -201,11 +202,10 @@ const Timetable = ({ navigation }) => {
         return;
       }
       if (!sessions[i].room.trim()) {
-        sessions[i].room = "ติดต่ออาจารย์ผู้สอน"; // กำหนดค่าเริ่มต้นหากห้องว่าง
+        sessions[i].room = "ติดต่ออาจารย์ผู้สอน";
       }
     }
 
-    // แยกข้อมูลวิชาเดิมออกก่อน หากกำลังอยู่ในโหมดแก้ไข
     let tempTable = table;
     if (isEditingSubject) {
       tempTable = table.filter(
@@ -214,7 +214,6 @@ const Timetable = ({ navigation }) => {
       );
     }
 
-    // ตรวจสอบวิชาซ้ำ (รหัสวิชาตรงกันในเทอมเดียวกัน)
     const isDuplicateCode = tempTable.some(
       (c) =>
         c.code.trim().toUpperCase() === subject.code.trim().toUpperCase() &&
@@ -234,7 +233,7 @@ const Timetable = ({ navigation }) => {
         ? s.id
         : Date.now().toString() + index.toString(),
       table: selectedTable,
-      code: subject.code.toUpperCase(), // บันทึกรหัสวิชาเป็นตัวพิมพ์ใหญ่
+      code: subject.code.toUpperCase(),
       name: subject.name,
       sec: subject.sec,
       day: s.day,
@@ -244,7 +243,6 @@ const Timetable = ({ navigation }) => {
       end: formatTime(s.endTime),
     }));
 
-    // 📝 ตรวจสอบเวลาเรียนซ้อนทับกันเองในวิชาเดียวกัน
     for (let i = 0; i < newEntries.length; i++) {
       for (let j = i + 1; j < newEntries.length; j++) {
         if (
@@ -260,7 +258,7 @@ const Timetable = ({ navigation }) => {
             "เวลาเรียนซ้อนทับกันเอง",
             `คาบที่ ${i + 1} (${newEntries[i].type}) และคาบที่ ${j + 1} (${newEntries[j].type}) มีเวลาเรียนทับซ้อนกันในวัน${dayLabels[newEntries[i].day]} กรุณาแก้ไขเวลาให้ถูกต้องขอรับ`,
           );
-          return; // บล็อกไม่ให้บันทึก
+          return;
         }
       }
     }
@@ -268,7 +266,6 @@ const Timetable = ({ navigation }) => {
     let isConflictFound = false;
     let conflictMsg = "";
 
-    // ตรวจสอบเวลาซ้อนทับกันกับวิชาอื่น
     for (const newEntry of newEntries) {
       const hasClassOverlap = tempTable.some(
         (s) =>
@@ -397,6 +394,7 @@ const Timetable = ({ navigation }) => {
               endTime: "",
               room: "",
               table: c.table,
+              isHidden: false,
             };
       });
     });
@@ -520,6 +518,36 @@ const Timetable = ({ navigation }) => {
     setEditingExam(null);
   };
 
+  const handleHideExam = (examId) => {
+    Alert.alert(
+      "ซ่อนวิชาสอบ",
+      "ออเจ้าต้องการซ่อนวิชานี้จากตารางสอบใช่หรือไม่?",
+      [
+        { text: "ยกเลิก", style: "cancel" },
+        {
+          text: "ซ่อน",
+          style: "destructive",
+          onPress: () => {
+            const updatedExams = examList.map((ex) =>
+              ex.id === examId ? { ...ex, isHidden: true } : ex
+            );
+            setExamList(updatedExams);
+            persistData(table, tableList, updatedExams);
+          },
+        },
+      ]
+    );
+  };
+
+  // ฟังก์ชันกู้คืนวิชาที่ถูกซ่อน
+  const handleRestoreExam = (examId) => {
+    const updatedExams = examList.map((ex) =>
+      ex.id === examId ? { ...ex, isHidden: false } : ex
+    );
+    setExamList(updatedExams);
+    persistData(table, tableList, updatedExams);
+  };
+
   useFocusEffect(
     useCallback(() => {
       const loadAndSync = async () => {
@@ -533,7 +561,6 @@ const Timetable = ({ navigation }) => {
 
           let loadedTableList = [];
 
-          // --- โหลดจาก Local ---
           if (localT) setTable(JSON.parse(localT));
           if (localL) {
             loadedTableList = JSON.parse(localL);
@@ -544,7 +571,6 @@ const Timetable = ({ navigation }) => {
           }
           if (localE) setExamList(JSON.parse(localE));
 
-          // --- ซิงค์กับ Cloud ---
           if (auth.currentUser) {
             const userDocRef = doc(
               db,
@@ -592,9 +618,8 @@ const Timetable = ({ navigation }) => {
 
       loadAndSync();
 
-      // คืนค่าว่างเปล่า (Cleanup function)
       return () => {};
-    }, [selectedTable]), // ใส่ dependency ที่จำเป็น
+    }, [selectedTable]),
   );
 
   const persistData = async (newTable, newList, newExams) => {
@@ -782,13 +807,12 @@ const Timetable = ({ navigation }) => {
         <ScrollView
           style={styles.listArea}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }} // เพิ่มบรรทัดนี้ลงไปเพื่อดันวันอาทิตย์ขึ้นมา
+          contentContainerStyle={{ paddingBottom: 100 }}
         >
           {days.map((day) => {
             const dailyClasses = table
               .filter((c) => c.day === day && c.table === selectedTable)
               .sort((a, b) => {
-                // แปลงเวลาจากรูปแบบ "HH:mm" เป็นตัวเลขนาทีทั้งหมดเพื่อเปรียบเทียบ
                 const timeA = a.start
                   .split(":")
                   .reduce((h, m) => parseInt(h) * 60 + parseInt(m));
@@ -939,18 +963,30 @@ const Timetable = ({ navigation }) => {
         >
           <View style={styles.examCard}>
             <View
-              style={{ flexDirection: "row", justifyContent: "space-between" }}
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 15,
+              }}
             >
-              <Text style={styles.title}>กำหนดการสอบ</Text>
+              <Text style={[styles.title, { marginBottom: 0 }]}>กำหนดการสอบ</Text>
+              
+              {/* ปุ่มเปิด/ปิดตา เพื่อดูวิชาที่ถูกซ่อน */}
+              <TouchableOpacity onPress={() => setShowHiddenExams(!showHiddenExams)}>
+                <Feather 
+                  name={showHiddenExams ? "eye-off" : "eye"} 
+                  size={24} 
+                  color="#C7005C" 
+                />
+              </TouchableOpacity>
             </View>
 
-            {examList.filter((item) => item.table === selectedTable).length ===
-            0 ? (
+            {examList.filter((item) => item.table === selectedTable && (showHiddenExams || !item.isHidden)).length === 0 ? (
               <Text style={styles.emptyText}>ยังไม่มีวิชาในตารางสอบ</Text>
             ) : (
               examList
-                .filter((item) => item.table === selectedTable)
-                // --- เพิ่มส่วนการเรียงลำดับ (Sort) ตรงนี้ครับ ---
+                .filter((item) => item.table === selectedTable && (showHiddenExams || !item.isHidden))
                 .sort((a, b) => {
                   if (!a.examDate && b.examDate) return 1;
                   if (a.examDate && !b.examDate) return -1;
@@ -976,9 +1012,14 @@ const Timetable = ({ navigation }) => {
                     .reduce((h, m) => parseInt(h) * 60 + parseInt(m));
                   return timeA - timeB;
                 })
-                // -------------------------------------------
                 .map((item) => (
-                  <View key={item.id} style={styles.examCardMini}>
+                  <View 
+                    key={item.id} 
+                    style={[
+                      styles.examCardMini, 
+                      item.isHidden && { opacity: 0.5, backgroundColor: '#F1F2F6' } // ทำให้จางลงเมื่ออยู่ในสถานะซ่อน
+                    ]}
+                  >
                     <View
                       style={{
                         flexDirection: "row",
@@ -1013,15 +1054,34 @@ const Timetable = ({ navigation }) => {
                           </Text>
                         </Text>
                       </View>
-                      <TouchableOpacity
-                        style={{ paddingLeft: 10, justifyContent: "center" }}
-                        onPress={() => {
-                          setEditingExam(item);
-                          setModalExamEditVisible(true);
-                        }}
-                      >
-                        <Feather name="edit" size={24} color="#C7005C" />
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: "column", justifyContent: "space-between" }}>
+                        <TouchableOpacity
+                          style={{ paddingLeft: 10, justifyContent: "center", marginBottom: 10 }}
+                          onPress={() => {
+                            setEditingExam(item);
+                            setModalExamEditVisible(true);
+                          }}
+                        >
+                          <Feather name="edit" size={20} color="#C7005C" />
+                        </TouchableOpacity>
+                        
+                        {/* ถ้าถูกซ่อนอยู่ ให้แสดงปุ่มกู้คืน (refresh-ccw) ถ้ายังไม่ซ่อนให้แสดงปุ่มลบ (trash-2) */}
+                        {item.isHidden ? (
+                          <TouchableOpacity
+                            style={{ paddingLeft: 10, justifyContent: "center" }}
+                            onPress={() => handleRestoreExam(item.id)}
+                          >
+                            <Feather name="refresh-ccw" size={20} color="#00B894" />
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={{ paddingLeft: 10, justifyContent: "center" }}
+                            onPress={() => handleHideExam(item.id)}
+                          >
+                            <Feather name="trash-2" size={20} color="#FF7675" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </View>
                 ))
@@ -1300,7 +1360,6 @@ const Timetable = ({ navigation }) => {
                     </Picker>
                   </View>
 
-                  {/* 📝 เปลี่ยนจาก TextInput เป็น Dropdown สำหรับ Lecture/Lab */}
                   <View
                     style={{ flexDirection: "row", gap: 10, marginTop: 10 }}
                   >
@@ -1427,7 +1486,6 @@ const Timetable = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
 
-              {/* ปุ่มลบวิชาทั้งหมด จะแสดงเฉพาะตอนแก้ไข */}
               {isEditingSubject && (
                 <TouchableOpacity
                   style={[styles.saveBtn, { backgroundColor: "#FF7675" }]}
@@ -1695,7 +1753,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: "Inter_700Bold",
     color: "#C7005C",
-    marginBottom: 15,
   },
   examCard: {
     backgroundColor: "#FFF",
