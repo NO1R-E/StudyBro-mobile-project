@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Picker } from '@react-native-picker/picker';
+import { Picker } from "@react-native-picker/picker";
 import {
   useFonts,
   Inter_400Regular,
@@ -34,6 +34,8 @@ const Planner = () => {
   const [activityName, setActivityName] = useState("");
   const [category, setCategory] = useState("study");
   const [note, setNote] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
 
   // Planner.js
   const [allTableData, setAllTableData] = useState([]); // ข้อมูลตารางเรียนทั้งหมด
@@ -105,6 +107,43 @@ const Planner = () => {
       console.error("Sync Error:", error);
     }
   };
+  const handleEditTask = (task) => {
+    if (task.status !== "pending") {
+      Alert.alert(
+        "ไม่สามารถแก้ไขได้",
+        "สามารถแก้ไขได้เฉพาะกิจกรรมที่สถานะ 'รอดำเนินการ'",
+      );
+      return;
+    }
+    setIsEditing(true);
+    setEditingTaskId(task.id);
+
+    setActivityName(task.title);
+    setCategory(task.category);
+    setNote(task.note || "");
+
+    const [start, end] = task.timeString.split(" - ");
+
+    const [sh, sm] = start.split(":");
+    const [eh, em] = end.split(":");
+
+    const dateParts = task.dateString.split("/");
+
+    const editDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+
+    const startDate = new Date(editDate);
+    startDate.setHours(sh, sm);
+
+    const endDate = new Date(editDate);
+    endDate.setHours(eh, em);
+
+    setActivityDate(editDate);
+    setStartTime(startDate);
+    setEndTime(endDate);
+
+    setDetailsModalVisible(false);
+    setModalVisible(true);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -168,7 +207,7 @@ const Planner = () => {
       };
       loadTimetableData();
       // ... โค้ดเดิมที่โหลด Tasks ...
-    }, [])
+    }, []),
   );
   useFocusEffect(
     useCallback(() => {
@@ -189,14 +228,17 @@ const Planner = () => {
         }
       };
       loadData();
-    }, [])
+    }, []),
   );
   useEffect(() => {
     if (selectedSemester) {
       // กรองวิชาที่มีใน Semester ที่เลือก (เอาเฉพาะชื่อวิชาที่ไม่ซ้ำกัน)
-      const subjectsInTerm = allSubjects.filter(s => s.table === selectedSemester);
-      const uniqueSubjects = Array.from(new Set(subjectsInTerm.map(s => s.name)))
-        .map(name => subjectsInTerm.find(s => s.name === name));
+      const subjectsInTerm = allSubjects.filter(
+        (s) => s.table === selectedSemester,
+      );
+      const uniqueSubjects = Array.from(
+        new Set(subjectsInTerm.map((s) => s.name)),
+      ).map((name) => subjectsInTerm.find((s) => s.name === name));
       setFilteredSubjects(uniqueSubjects);
     } else {
       setFilteredSubjects([]);
@@ -205,9 +247,13 @@ const Planner = () => {
   useEffect(() => {
     if (selectedSemester) {
       // กรองวิชาที่มีชื่อเทอมตรงกับที่เลือก
-      const subjectsInTerm = allTableData.filter(item => item.table === selectedSemester);
+      const subjectsInTerm = allTableData.filter(
+        (item) => item.table === selectedSemester,
+      );
       // เอาเฉพาะชื่อวิชาที่ไม่ซ้ำกัน
-      const uniqueNames = Array.from(new Set(subjectsInTerm.map(s => s.name)));
+      const uniqueNames = Array.from(
+        new Set(subjectsInTerm.map((s) => s.name)),
+      );
       setFilteredSubjects(uniqueNames);
     } else {
       setFilteredSubjects([]);
@@ -216,13 +262,12 @@ const Planner = () => {
   }, [selectedSemester, allTableData]);
   useEffect(() => {
     if (allSubjects.length > 0) {
-
       // ดึงชื่อวิชาไม่ซ้ำ
-      const uniqueNames = [...new Set(allSubjects.map(s => s.name))];
+      const uniqueNames = [...new Set(allSubjects.map((s) => s.name))];
       setUniqueSubjectNames(uniqueNames);
 
       // ดึง semester ไม่ซ้ำ
-      const semesters = [...new Set(allSubjects.map(s => s.table))];
+      const semesters = [...new Set(allSubjects.map((s) => s.table))];
       setAvailableSemesters(semesters);
     }
   }, [allSubjects]);
@@ -288,22 +333,33 @@ const Planner = () => {
           0,
         );
 
-        const newTask = {
-          id: Date.now().toString(),
+        const oldTask = tasks.find((t) => t.id === editingTaskId);
+
+        const taskData = {
+          id: isEditing ? editingTaskId : Date.now().toString(),
           title: activityName.trim(),
           timeString: `${newStart} - ${newEnd}`,
           dateString: dateStr,
           category,
           note,
-          status: "pending",
+          status: isEditing ? oldTask?.status : "pending",
           endTimeMs: finalActivityDate.getTime(),
         };
 
-        const updatedTasks = [...tasks, newTask];
-        setTasks(updatedTasks);
+        let updatedTasks;
 
-        // Call the new sync function
+        if (isEditing) {
+          updatedTasks = tasks.map((t) =>
+            t.id === editingTaskId ? taskData : t,
+          );
+        } else {
+          updatedTasks = [...tasks, taskData];
+        }
+
+        setTasks(updatedTasks);
         await persistTasks(updatedTasks);
+
+       
 
         setActivityName("");
         setNote("");
@@ -342,6 +398,8 @@ const Planner = () => {
       ]);
     } else {
       executeSave();
+      setIsEditing(false);
+      setEditingTaskId(null);
     }
   };
 
@@ -392,27 +450,56 @@ const Planner = () => {
             <Text style={styles.label}>หมวดหมู่กิจกรรม</Text>
             <View style={styles.categoryRow}>
               <TouchableOpacity
-                style={[styles.categoryButton, category === "study" && styles.categoryButtonActive]}
+                style={[
+                  styles.categoryButton,
+                  category === "study" && styles.categoryButtonActive,
+                ]}
                 onPress={() => setCategory("study")}
               >
-                <Text style={[styles.categoryText, category === "study" && styles.categoryTextActive]}>📖 วิชาเรียน</Text>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    category === "study" && styles.categoryTextActive,
+                  ]}
+                >
+                  📖 วิชาเรียน
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.categoryButton, category === "other" && styles.categoryButtonActive]}
+                style={[
+                  styles.categoryButton,
+                  category === "other" && styles.categoryButtonActive,
+                ]}
                 onPress={() => {
                   setCategory("other");
                   setSelectedSubjectName("");
                   setSelectedTerm("");
                 }}
               >
-                <Text style={[styles.categoryText, category === "other" && styles.categoryTextActive]}>⚽️ อื่นๆ</Text>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    category === "other" && styles.categoryTextActive,
+                  ]}
+                >
+                  ⚽️ อื่นๆ
+                </Text>
               </TouchableOpacity>
             </View>
 
             {category === "study" ? (
               <>
                 <Text style={styles.label}>เลือกปีการศึกษา (Semester)</Text>
-                <View style={{ borderWidth: 1, borderColor: "#EEE", borderRadius: 10, marginBottom: 15, backgroundColor: "#FAFAFA", overflow: 'hidden' }}>
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#EEE",
+                    borderRadius: 10,
+                    marginBottom: 15,
+                    backgroundColor: "#FAFAFA",
+                    overflow: "hidden",
+                  }}
+                >
                   <Picker
                     selectedValue={selectedSemester}
                     onValueChange={(val) => {
@@ -422,7 +509,11 @@ const Planner = () => {
                   >
                     <Picker.Item label="-- เลือกเทอม --" value="" />
                     {semesterList.map((item, index) => (
-                      <Picker.Item key={index} label={item.label} value={item.label} />
+                      <Picker.Item
+                        key={index}
+                        label={item.label}
+                        value={item.label}
+                      />
                     ))}
                   </Picker>
                 </View>
@@ -430,7 +521,16 @@ const Planner = () => {
                 {selectedSemester !== "" && (
                   <>
                     <Text style={styles.label}>เลือกวิชาในเทอมนี้</Text>
-                    <View style={{ borderWidth: 1, borderColor: "#EEE", borderRadius: 10, marginBottom: 15, backgroundColor: "#FAFAFA", overflow: 'hidden' }}>
+                    <View
+                      style={{
+                        borderWidth: 1,
+                        borderColor: "#EEE",
+                        borderRadius: 10,
+                        marginBottom: 15,
+                        backgroundColor: "#FAFAFA",
+                        overflow: "hidden",
+                      }}
+                    >
                       <Picker
                         selectedValue={selectedSubjectName}
                         onValueChange={(val) => {
@@ -448,9 +548,7 @@ const Planner = () => {
                 )}
               </>
             ) : (
-              <>
-                {/* ไม่รู้ใส่ไรดี */}
-              </>
+              <>{/* ไม่รู้ใส่ไรดี */}</>
             )}
 
             <Text style={styles.label}>รายละเอียดเพิ่มเติม</Text>
@@ -461,7 +559,6 @@ const Planner = () => {
               value={note}
               onChangeText={setNote}
             />
-
 
             <Text style={styles.label}>วันที่</Text>
             <TouchableOpacity
@@ -494,7 +591,6 @@ const Planner = () => {
                 </TouchableOpacity>
               </View>
             </View>
-
 
             {showDatePicker && (
               <DateTimePicker
@@ -617,12 +713,22 @@ const Planner = () => {
                   </Text>
                 </View>
                 <View style={styles.modalButtonRow}>
+                  {selectedTask.status === "pending" && (
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => handleEditTask(selectedTask)}
+                    >
+                      <Text style={styles.editButtonText}>แก้ไขกิจกรรม</Text>
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={() => handleDeleteTask(selectedTask.id)}
                   >
                     <Text style={styles.deleteButtonText}>ลบกิจกรรม</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     style={styles.cancelButton}
                     onPress={() => setDetailsModalVisible(false)}
@@ -1066,6 +1172,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   noteText: { fontSize: 14, color: "#666", fontStyle: "italic" },
+  editButton: {
+    backgroundColor: "#2196F3",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+
+  editButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });
 
 export default Planner;
