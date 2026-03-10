@@ -1094,8 +1094,8 @@ const Dashboard = ({ navigation }) => {
                     marginVertical: 5,
                   }}
                 >
-                  {activity.timeString} น.{activity.isOvernight ? "(ข้ามคืน)" : ""}
-                  
+                  {activity.timeString} น.
+                  {activity.isOvernight ? "(ข้ามคืน)" : ""}
                 </Text>
 
                 <View
@@ -1118,7 +1118,7 @@ const Dashboard = ({ navigation }) => {
                       }}
                     >
                       {" "}
-                      Note: {activity.note || "ไม่ได้ระบุ"}
+                      : {activity.category || "ไม่ได้ระบุ"}
                     </Text>
                   </View>
 
