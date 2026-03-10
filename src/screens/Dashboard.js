@@ -50,6 +50,9 @@ const Dashboard = ({ navigation }) => {
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
 
+  // ================= STATE สำหรับ QUICK ADD (เพิ่มงานด่วน) =================
+  const [quickTaskName, setQuickTaskName] = useState("");
+
   // ================= STATE สำหรับ MODAL เพิ่มวิชา =================
   const [modalSubjectVisible, setModalSubjectVisible] = useState(false);
   const [selectedTableForAdd, setSelectedTableForAdd] = useState("");
@@ -130,7 +133,6 @@ const Dashboard = ({ navigation }) => {
       setFilteredSubjectsForTask([]);
     }
   }, [selectedSemesterForTask, userTable]);
-  // ==========================================================
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -157,15 +159,12 @@ const Dashboard = ({ navigation }) => {
       const savedTasks = await AsyncStorage.getItem("myTasks");
       const savedProfile = await AsyncStorage.getItem("myProfile");
 
-      // ===== ตารางเรียน =====
       if (savedTable) {
-        const parsedTable = JSON.parse(savedTable);
-        setUserTable(parsedTable);
+        setUserTable(JSON.parse(savedTable));
       } else {
         setUserTable([]);
       }
 
-      // ===== รายชื่อกลุ่ม (Semester) =====
       if (savedTableList) {
         const parsedList = JSON.parse(savedTableList);
         setTableList(parsedList);
@@ -179,24 +178,19 @@ const Dashboard = ({ navigation }) => {
         setTableList([]);
       }
 
-      // ===== ตารางสอบ =====
       if (savedExamList) {
-        const parsedExams = JSON.parse(savedExamList);
-        setExamList(parsedExams);
+        setExamList(JSON.parse(savedExamList));
       } else {
         setExamList([]);
       }
 
-      // ===== Planner Tasks =====
       if (savedTasks) {
-        const parsedTasks = JSON.parse(savedTasks);
-        setTasks(parsedTasks);
+        setTasks(JSON.parse(savedTasks));
       } else {
         setTasks([]);
         setUpcomingActivities([]);
       }
 
-      // ===== Profile =====
       if (savedProfile) {
         const profile = JSON.parse(savedProfile);
         setUserName(profile.name || "ผู้ใช้");
@@ -259,7 +253,6 @@ const Dashboard = ({ navigation }) => {
         daysUntil += 7;
       }
 
-      // ถ้าเป็นวันนี้แต่เวลาเรียนจบไปแล้ว ให้ปัดเป็นสัปดาห์หน้า
       if (daysUntil === 0 && now.getTime() > classEndDate.getTime()) {
         daysUntil += 7;
       }
@@ -293,13 +286,10 @@ const Dashboard = ({ navigation }) => {
       .sort((a, b) => {
         const [dayA, monthA, yearA] = a.examDate.split("/");
         const [dayB, monthB, yearB] = b.examDate.split("/");
-        
         const dateA = new Date(yearA, monthA - 1, dayA).getTime();
         const dateB = new Date(yearB, monthB - 1, dayB).getTime();
 
-        if (dateA !== dateB) {
-          return dateA - dateB;
-        }
+        if (dateA !== dateB) return dateA - dateB;
 
         const timeA = a.startTime ? a.startTime : "23:59";
         const timeB = b.startTime ? b.startTime : "23:59";
@@ -315,6 +305,12 @@ const Dashboard = ({ navigation }) => {
     const todayStr = now.toDateString();
 
     const filtered = tasks.filter((activity) => {
+      const isPending = activity.status === "pending" || !activity.status;
+      if (!isPending) return false;
+
+      // ถ้าเป็น Quick Task ให้แสดงเสมอโดยไม่สนใจเวลา
+      if (activity.isQuickTask) return true;
+
       let activityDate;
       if (activity.endTimeMs) {
         activityDate = new Date(activity.endTimeMs);
@@ -324,9 +320,6 @@ const Dashboard = ({ navigation }) => {
       } else {
         activityDate = new Date();
       }
-
-      const isPending = activity.status === "pending" || !activity.status;
-      if (!isPending) return false;
 
       const [day, month, year] = activity.dateString.split("/");
       const startDate = new Date(year, month - 1, day);
@@ -379,6 +372,9 @@ const Dashboard = ({ navigation }) => {
 
     const sortedActivities = filtered.sort((a, b) => {
       const getSortTime = (item) => {
+        // ให้ Quick Task ขึ้นมาแสดงอยู่บนสุดเสมอ
+        if (item.isQuickTask) return 0;
+
         if (item.endTimeMs) return item.endTimeMs;
         if (item.dateString && item.timeString) {
           try {
@@ -401,6 +397,11 @@ const Dashboard = ({ navigation }) => {
 
   const getStatusDetails = (activity) => {
     if (!activity) return { label: "Pending", isLate: false };
+
+    // กำหนดให้ Quick Task ไม่มีวันสาย และขึ้นป้ายกำกับว่าด่วน
+    if (activity.isQuickTask) {
+      return { label: "ด่วน", isLate: false };
+    }
 
     const nowMs = Date.now();
     let isLate = false;
@@ -448,6 +449,67 @@ const Dashboard = ({ navigation }) => {
   useEffect(() => {
     calculateUpcomingActivities();
   }, [tasks, activityFilter]);
+
+  // ================= LOGIC สำหรับการบันทึก (ทั้งปกติ และ ด่วน) =================
+  const saveTask = async (newTask, isQuick = false) => {
+    try {
+      const updatedTasks = [...tasks, newTask];
+      setTasks(updatedTasks);
+      await AsyncStorage.setItem("myTasks", JSON.stringify(updatedTasks));
+
+      if (auth.currentUser) {
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "planner",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          {
+            tasks: updatedTasks,
+            lastUpdated: new Date().toISOString(),
+          },
+          { merge: true },
+        );
+      }
+      
+      if (!isQuick) {
+        setModalTaskVisible(false);
+        Alert.alert("สำเร็จ", "เพิ่มกิจกรรมลงใน Planner เรียบร้อยแล้ว");
+      }
+      // รีเฟรชกิจกรรม
+      calculateUpcomingActivities();
+    } catch (error) {
+      Alert.alert("ข้อผิดพลาด", "ไม่สามารถบันทึกกิจกรรมได้");
+    }
+  };
+
+  // ================= LOGIC สำหรับ QUICK ADD =================
+  const handleQuickAddTask = () => {
+    if (quickTaskName.trim() === "") return;
+
+    const now = new Date();
+    
+    const newTask = {
+      id: "quick_" + Date.now().toString(),
+      title: quickTaskName.trim(),
+      category: "other",
+      dateString: formatDate(now),
+      timeString: "00:00 - 23:59", // ใส่เผื่อไว้ไม่ให้ระบบส่วนอื่นพังเวลาแยกค่าเวลา
+      note: "เพิ่มด่วน",
+      status: "pending",
+      isOvernight: false,
+      isQuickTask: true, // ตัวแปรสำคัญที่จะสั่งให้ข้ามการตรวจสอบเวลา
+      startTimeMs: now.getTime(),
+      endTimeMs: now.getTime() + (1000 * 60 * 60 * 24 * 365 * 10), // ป้องกันการขึ้น Late ให้ไกลออกไปอีก 10 ปี
+    };
+
+    saveTask(newTask, true); // true = เพื่อให้รู้ว่าเป็น Quick Task
+    setQuickTaskName(""); // ล้างช่องพิมพ์หลังเพิ่มสำเร็จ
+  };
+
 
   // ================= LOGIC สำหรับปุ่มเพิ่มวิชา =================
   const openAddSubjectModal = () => {
@@ -648,38 +710,6 @@ const Dashboard = ({ navigation }) => {
       );
     } else {
       executeAdd();
-    }
-  };
-
-  // ================= LOGIC สำหรับปุ่มเพิ่มงาน (Planner) =================
-  const saveTask = async (newTask) => {
-    try {
-      const updatedTasks = [...tasks, newTask];
-      setTasks(updatedTasks);
-      await AsyncStorage.setItem("myTasks", JSON.stringify(updatedTasks));
-
-      if (auth.currentUser) {
-        const userDocRef = doc(
-          db,
-          "users",
-          auth.currentUser.uid,
-          "planner",
-          "data",
-        );
-        await setDoc(
-          userDocRef,
-          {
-            tasks: updatedTasks,
-            lastUpdated: new Date().toISOString(),
-          },
-          { merge: true },
-        );
-      }
-      setModalTaskVisible(false);
-      Alert.alert("สำเร็จ", "เพิ่มกิจกรรมลงใน Planner เรียบร้อยแล้ว");
-      calculateUpcomingActivities();
-    } catch (error) {
-      Alert.alert("ข้อผิดพลาด", "ไม่สามารถบันทึกกิจกรรมได้");
     }
   };
 
@@ -1090,6 +1120,36 @@ const Dashboard = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* --- ส่วนสำหรับ Quick Add (เพิ่มงานด่วน) --- */}
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+          <TextInput
+            style={{
+              flex: 1,
+              backgroundColor: "#F1F2F6",
+              borderRadius: 12,
+              paddingHorizontal: 15,
+              paddingVertical: 10,
+              fontFamily: "Inter_400Regular",
+              color: "#333",
+            }}
+            placeholder="เพิ่มงานด่วน (พิมพ์แล้วกด ✅)..."
+            value={quickTaskName}
+            onChangeText={setQuickTaskName}
+            onSubmitEditing={handleQuickAddTask} // กดปุ่ม Enter/Return ในคีย์บอร์ดก็เซฟได้เลย
+          />
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#C7005C",
+              padding: 10,
+              borderRadius: 12,
+              marginLeft: 10,
+            }}
+            onPress={handleQuickAddTask}
+          >
+            <Ionicons name="checkmark" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+
         {showFilterDropdown && (
           <View
             style={{
@@ -1226,14 +1286,16 @@ const Dashboard = ({ navigation }) => {
                       {statusLabel}
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      color: isLate ? "#D63031" : "#C7005C",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {activity.dateString}
-                  </Text>
+                  {!activity.isQuickTask && (
+                    <Text
+                      style={{
+                        color: isLate ? "#D63031" : "#C7005C",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {activity.dateString}
+                    </Text>
+                  )}
                 </View>
                 <Text
                   style={{
@@ -1268,16 +1330,18 @@ const Dashboard = ({ navigation }) => {
                       : {activity.category || "ไม่ได้ระบุ"}
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      color: isLate ? "#D63031" : "#EA3287",
-                      fontSize: 14,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {activity.timeString} น.{" "}
-                    {activity.isOvernight ? "(ข้ามคืน)" : ""}
-                  </Text>
+                  {!activity.isQuickTask && (
+                    <Text
+                      style={{
+                        color: isLate ? "#D63031" : "#EA3287",
+                        fontSize: 14,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {activity.timeString} น.{" "}
+                      {activity.isOvernight ? "(ข้ามคืน)" : ""}
+                    </Text>
+                  )}
                 </View>
               </View>
             );
