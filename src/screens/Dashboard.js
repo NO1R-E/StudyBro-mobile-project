@@ -992,7 +992,8 @@ const Dashboard = ({ navigation }) => {
                 <Text
                   style={{ color: "#EA3287", fontSize: 14, fontWeight: "600" }}
                 >
-                  {activity.timeString.split("-")[0]} น.
+                  {activity.timeString} น.{activity.isOvernight ? "(ข้ามคืน)" : ""}
+                  
                 </Text>
               </View>
             </View>

@@ -206,7 +206,6 @@ const Planner = () => {
         }
       };
       loadTimetableData();
-      // ... โค้ดเดิมที่โหลด Tasks ...
     }, []),
   );
   useFocusEffect(
@@ -317,21 +316,9 @@ const Planner = () => {
       return;
     }
 
-    // ================= เพิ่มส่วนตรวจสอบเวลาตรงนี้ =================
     const startMinutes = startTime.getHours() * 60 + startTime.getMinutes();
     const endMinutes = endTime.getHours() * 60 + endTime.getMinutes();
-
-    if (startMinutes >= endMinutes) {
-      Alert.alert(
-        "เวลาไม่ถูกต้อง", 
-        "เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุดนะขอรับ"
-      );
-      return; // หยุดการทำงาน ไม่ให้บันทึก
-    }
-    if (!activityName.trim()) {
-      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
-      return;
-    }
+    const isOvernight = startMinutes >= endMinutes; // จะเป็น true ถ้าเวลาเริ่ม >= เวลาจบ
 
     const newStart = formatTime(startTime);
     const newEnd = formatTime(endTime);
@@ -343,6 +330,9 @@ const Planner = () => {
     const executeSave = async () => {
       try {
         const finalActivityDate = new Date(activityDate);
+        if (isOvernight) {
+          finalActivityDate.setDate(finalActivityDate.getDate() + 1);
+        }
         finalActivityDate.setHours(
           endTime.getHours(),
           endTime.getMinutes(),
@@ -361,6 +351,7 @@ const Planner = () => {
           note,
           status: isEditing ? oldTask?.status : "pending",
           endTimeMs: finalActivityDate.getTime(),
+          isOvernight: isOvernight,
         };
 
         let updatedTasks;
@@ -373,14 +364,17 @@ const Planner = () => {
           updatedTasks = [...tasks, taskData];
         }
 
+        // 📝 ปิด Modal และเคลียร์ค่าทันทีที่กดเซฟ เพื่อให้ UI ลื่นไหล
         setTasks(updatedTasks);
-        await persistTasks(updatedTasks);
-
-       
-
+        setModalVisible(false);
         setActivityName("");
         setNote("");
-        setModalVisible(false);
+        setIsEditing(false);
+        setEditingTaskId(null);
+
+        // 📝 ค่อยนำข้อมูลไปเซฟลงเครื่องและ Firebase เป็นการทำงานเบื้องหลัง
+        await persistTasks(updatedTasks);
+
       } catch (error) {
         Alert.alert("Error", "ไม่สามารถบันทึกได้");
       }
@@ -389,6 +383,7 @@ const Planner = () => {
     const hasActivityConflict = tasks.some(
       (t) =>
         t.dateString === dateStr &&
+        t.id !== editingTaskId && // ป้องกันการเช็คชนกับงานตัวเองตอนกดแก้ไข
         isOverlapping(
           newStart,
           newEnd,
@@ -415,8 +410,6 @@ const Planner = () => {
       ]);
     } else {
       executeSave();
-      setIsEditing(false);
-      setEditingTaskId(null);
     }
   };
 
@@ -693,7 +686,7 @@ const Planner = () => {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>เวลา:</Text>
                   <Text style={styles.detailValue}>
-                    {selectedTask.timeString}
+                    {selectedTask.timeString} {selectedTask.isOvernight ? "(ข้ามคืน +1 วัน)" : ""}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
