@@ -1094,7 +1094,8 @@ const Dashboard = ({ navigation }) => {
                     marginVertical: 5,
                   }}
                 >
-                  {activity.title}
+                  {activity.timeString} น.{activity.isOvernight ? "(ข้ามคืน)" : ""}
+                  
                 </Text>
 
                 <View
