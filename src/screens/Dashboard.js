@@ -258,7 +258,7 @@ const Dashboard = ({ navigation }) => {
 
     setUpcomingExams(upcoming);
   };
-const calculateUpcomingActivities = () => {
+  const calculateUpcomingActivities = () => {
     const now = new Date();
     // เซ็ตเวลาของ now เป็นเริ่มวัน เพื่อให้เปรียบเทียบวันที่ได้แม่นยำขึ้น
     const todayStr = now.toDateString();
@@ -1120,8 +1120,7 @@ const calculateUpcomingActivities = () => {
                     marginVertical: 5,
                   }}
                 >
-                  {activity.title} 
-                  
+                  {activity.title}
                 </Text>
 
                 <View
@@ -1155,9 +1154,8 @@ const calculateUpcomingActivities = () => {
                       fontWeight: "600",
                     }}
                   >
-                    
                     {activity.timeString} น.
-                  {activity.isOvernight ? "(ข้ามคืน)" : ""}
+                    {activity.isOvernight ? "(ข้ามคืน)" : ""}
                   </Text>
                 </View>
               </View>
@@ -1187,7 +1185,8 @@ const calculateUpcomingActivities = () => {
           </View>
         )}
       </View>
-
+      <View style={styles.divider} />
+      <Text style={styles.versionText}>StudySync v1.0.0 🌸</Text>
       {/* ================= MODAL เพิ่มวิชาเรียน ================= */}
       <Modal
         visible={modalSubjectVisible}
@@ -1874,6 +1873,13 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     alignItems: "center",
   },
+  divider: {
+    height: 1,
+    backgroundColor: "#FFDAE0",
+    width: "100%",
+    marginVertical: 20,
+  },
+  versionText: { marginTop: 10, color: "#FFB7C5", fontSize: 12  ,textAlign:'center' },
 });
 
 export default Dashboard;
