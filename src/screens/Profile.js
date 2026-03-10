@@ -31,7 +31,7 @@ import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 const Profile = () => {
   const navigation = useNavigation();
 
-  const pickImage = async () => {
+const pickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -54,7 +54,6 @@ const Profile = () => {
       const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
       const data = new FormData();
       data.append("file", base64Img);
-
       data.append("upload_preset", "Mobile");
       data.append("cloud_name", "dyvzbdlcx");
 
@@ -70,11 +69,20 @@ const Profile = () => {
         const cloudData = await response.json();
 
         if (cloudData.secure_url) {
-          setProfile((prev) => ({
-            ...prev,
+          // --- ส่วนที่แก้ไข: สร้าง Object ใหม่และสั่งบันทึกลง Firebase ทันที ---
+          const updatedProfile = {
+            ...profile,
             avatar: cloudData.secure_url,
-          }));
+          };
+          
+          // 1. อัปเดต State เพื่อแสดงผลบนหน้าจอ
+          setProfile(updatedProfile); 
+          
+          // 2. สั่งบันทึกลง AsyncStorage และ Firestore ทันที
+          await persistProfile(updatedProfile); 
+          
           Alert.alert("สำเร็จ", "เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!");
+          // -------------------------------------------------------
         } else {
           Alert.alert(
             "ข้อผิดพลาด",

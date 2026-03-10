@@ -249,11 +249,16 @@ const Timetable = ({ navigation }) => {
       for (let j = i + 1; j < newEntries.length; j++) {
         if (
           newEntries[i].day === newEntries[j].day &&
-          isOverlapping(newEntries[i].start, newEntries[i].end, newEntries[j].start, newEntries[j].end)
+          isOverlapping(
+            newEntries[i].start,
+            newEntries[i].end,
+            newEntries[j].start,
+            newEntries[j].end,
+          )
         ) {
           Alert.alert(
             "เวลาเรียนซ้อนทับกันเอง",
-            `คาบที่ ${i + 1} (${newEntries[i].type}) และคาบที่ ${j + 1} (${newEntries[j].type}) มีเวลาเรียนทับซ้อนกันในวัน${dayLabels[newEntries[i].day]} กรุณาแก้ไขเวลาให้ถูกต้องขอรับ`
+            `คาบที่ ${i + 1} (${newEntries[i].type}) และคาบที่ ${j + 1} (${newEntries[j].type}) มีเวลาเรียนทับซ้อนกันในวัน${dayLabels[newEntries[i].day]} กรุณาแก้ไขเวลาให้ถูกต้องขอรับ`,
           );
           return; // บล็อกไม่ให้บันทึก
         }
@@ -774,15 +779,24 @@ const Timetable = ({ navigation }) => {
 
       {/* ================= โหมดตารางเรียน ================= */}
       {mode === "class" && (
-        <ScrollView 
-          style={styles.listArea} 
+        <ScrollView
+          style={styles.listArea}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }} // เพิ่มบรรทัดนี้ลงไปเพื่อดันวันอาทิตย์ขึ้นมา
         >
           {days.map((day) => {
-            const dailyClasses = table.filter(
-              (c) => c.day === day && c.table === selectedTable,
-            );
+            const dailyClasses = table
+              .filter((c) => c.day === day && c.table === selectedTable)
+              .sort((a, b) => {
+                // แปลงเวลาจากรูปแบบ "HH:mm" เป็นตัวเลขนาทีทั้งหมดเพื่อเปรียบเทียบ
+                const timeA = a.start
+                  .split(":")
+                  .reduce((h, m) => parseInt(h) * 60 + parseInt(m));
+                const timeB = b.start
+                  .split(":")
+                  .reduce((h, m) => parseInt(h) * 60 + parseInt(m));
+                return timeA - timeB;
+              });
             const theme = dayThemes.get(day) || {
               text: "#333",
               background: "#EEE",
@@ -936,6 +950,33 @@ const Timetable = ({ navigation }) => {
             ) : (
               examList
                 .filter((item) => item.table === selectedTable)
+                // --- เพิ่มส่วนการเรียงลำดับ (Sort) ตรงนี้ครับ ---
+                .sort((a, b) => {
+                  if (!a.examDate && b.examDate) return 1;
+                  if (a.examDate && !b.examDate) return -1;
+                  if (!a.examDate && !b.examDate) return 0;
+
+                  const parseDate = (dateStr) => {
+                    const parts = dateStr.split("/");
+                    return new Date(parts[2] - 543, parts[1] - 1, parts[0]);
+                  };
+
+                  const dateA = parseDate(a.examDate);
+                  const dateB = parseDate(b.examDate);
+
+                  if (dateA - dateB !== 0) return dateA - dateB;
+
+                  if (!a.startTime) return 1;
+                  if (!b.startTime) return -1;
+                  const timeA = a.startTime
+                    .split(":")
+                    .reduce((h, m) => parseInt(h) * 60 + parseInt(m));
+                  const timeB = b.startTime
+                    .split(":")
+                    .reduce((h, m) => parseInt(h) * 60 + parseInt(m));
+                  return timeA - timeB;
+                })
+                // -------------------------------------------
                 .map((item) => (
                   <View key={item.id} style={styles.examCardMini}>
                     <View
