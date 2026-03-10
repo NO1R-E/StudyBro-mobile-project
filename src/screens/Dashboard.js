@@ -238,7 +238,7 @@ const Dashboard = ({ navigation }) => {
     setNextClass(result);
   };
 
-  const calculateUpcomingExams = (data = examList) => {
+const calculateUpcomingExams = (data = examList) => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const upcoming = data
@@ -251,9 +251,22 @@ const Dashboard = ({ navigation }) => {
       .sort((a, b) => {
         const [dayA, monthA, yearA] = a.examDate.split("/");
         const [dayB, monthB, yearB] = b.examDate.split("/");
-        return (
-          new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB)
-        );
+        
+        const dateA = new Date(yearA, monthA - 1, dayA).getTime();
+        const dateB = new Date(yearB, monthB - 1, dayB).getTime();
+
+        // 1. ตรวจสอบว่าวันที่ต่างกันหรือไม่ ถ้าต่างกันให้เรียงตามวันที่ก่อน
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+
+        // 2. ถ้าวันที่ตรงกัน ให้เรียงตามเวลาเริ่มสอบ (startTime)
+        // จัดการกรณีที่อาจจะยังไม่ได้กรอกเวลาสอบ ให้ไปอยู่ท้ายๆ
+        const timeA = a.startTime ? a.startTime : "23:59";
+        const timeB = b.startTime ? b.startTime : "23:59";
+
+        // ใช้ localeCompare ในการเทียบสตริงเวลา "HH:mm" ได้เลย เพราะรูปแบบนี้สามารถเรียงตามตัวอักษรได้
+        return timeA.localeCompare(timeB);
       });
 
     setUpcomingExams(upcoming);
