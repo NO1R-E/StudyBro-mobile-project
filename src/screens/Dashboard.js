@@ -1120,8 +1120,8 @@ const calculateUpcomingActivities = () => {
                     marginVertical: 5,
                   }}
                 >
-                  {activity.timeString} น.
-                  {activity.isOvernight ? "(ข้ามคืน)" : ""}
+                  {activity.title} 
+                  
                 </Text>
 
                 <View
@@ -1155,11 +1155,9 @@ const calculateUpcomingActivities = () => {
                       fontWeight: "600",
                     }}
                   >
-                    {/* Added a fallback check for timeString to prevent crashes */}
-                    {activity.timeString
-                      ? activity.timeString.split("-")[0]
-                      : "--:--"}{" "}
-                    น.
+                    
+                    {activity.timeString} น.
+                  {activity.isOvernight ? "(ข้ามคืน)" : ""}
                   </Text>
                 </View>
               </View>
