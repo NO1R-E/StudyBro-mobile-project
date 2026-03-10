@@ -355,7 +355,7 @@ const pickImage = async () => {
             ];
             await AsyncStorage.multiRemove(keys);
 
-            navigation.replace("Login");
+            // navigation.replace("Login");
           } catch (error) {
             console.error("Logout Error:", error);
             Alert.alert("ข้อผิดพลาด", "ไม่สามารถลงชื่อออกได้ กรุณาลองใหม่");

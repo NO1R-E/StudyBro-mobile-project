@@ -25,6 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Foundation from "@expo/vector-icons/Foundation";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import CustomDropdown from "../components/CustomDropdown";
 
 // นำเข้า Firebase และ helper (กรุณาเช็ค path ให้ตรงกับโปรเจกต์ของคุณ)
 import { doc, setDoc } from "firebase/firestore";
@@ -44,6 +45,7 @@ const Dashboard = ({ navigation }) => {
   const [tasks, setTasks] = useState([]);
 
   // สิ่งที่จะแสดงใน Dashboard
+  const [selectedTable, setSelectedTable] = useState("");
   const [nextClass, setNextClass] = useState(null);
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
@@ -102,6 +104,16 @@ const Dashboard = ({ navigation }) => {
   const [selectedSubjectForTask, setSelectedSubjectForTask] = useState("");
   const [filteredSubjectsForTask, setFilteredSubjectsForTask] = useState([]);
 
+  const dayLabels = {
+    Monday: "วันจันทร์",
+    Tuesday: "วันอังคาร",
+    Wednesday: "วันพุธ",
+    Thursday: "วันพฤหัสบดี",
+    Friday: "วันศุกร์",
+    Saturday: "วันเสาร์",
+    Sunday: "วันอาทิตย์",
+  };
+
   const formatDate = (dateObj) =>
     `${dateObj.getDate().toString().padStart(2, "0")}/${(dateObj.getMonth() + 1).toString().padStart(2, "0")}/${dateObj.getFullYear()}`;
 
@@ -149,10 +161,8 @@ const Dashboard = ({ navigation }) => {
       if (savedTable) {
         const parsedTable = JSON.parse(savedTable);
         setUserTable(parsedTable);
-        calculateNextClass(parsedTable);
       } else {
         setUserTable([]);
-        setNextClass(null);
       }
 
       // ===== รายชื่อกลุ่ม (Semester) =====
@@ -160,7 +170,10 @@ const Dashboard = ({ navigation }) => {
         const parsedList = JSON.parse(savedTableList);
         setTableList(parsedList);
         if (parsedList.length > 0 && !selectedTableForAdd) {
-          setSelectedTableForAdd(parsedList[0].label); // Set default picker value
+          setSelectedTableForAdd(parsedList[0].label); 
+        }
+        if (parsedList.length > 0 && !selectedTable) {
+          setSelectedTable(parsedList[0].label); 
         }
       } else {
         setTableList([]);
@@ -170,10 +183,8 @@ const Dashboard = ({ navigation }) => {
       if (savedExamList) {
         const parsedExams = JSON.parse(savedExamList);
         setExamList(parsedExams);
-        calculateUpcomingExams(parsedExams);
       } else {
         setExamList([]);
-        setUpcomingExams([]);
       }
 
       // ===== Planner Tasks =====
@@ -203,47 +214,78 @@ const Dashboard = ({ navigation }) => {
     }, []),
   );
 
-  const getMinutesWithOffset = (offsetHours = 0) => {
+  useEffect(() => {
+    calculateNextClass(userTable, selectedTable);
+    calculateUpcomingExams(examList, selectedTable);
+  }, [userTable, examList, selectedTable]);
+
+  const calculateNextClass = (data = userTable, currentSemester = selectedTable) => {
+    if (!data || data.length === 0 || !currentSemester) {
+      setNextClass(null);
+      return;
+    }
+
+    const filteredData = data.filter(c => c.table === currentSemester);
+    if (filteredData.length === 0) {
+      setNextClass(null);
+      return;
+    }
+
     const now = new Date();
-    return (now.getHours() + offsetHours) * 60 + now.getMinutes();
+    const dayMap = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    
+    const classesWithNextDate = filteredData.map(c => {
+      let h = 0, m = 0;
+      if (c.start && String(c.start).includes(":")) {
+        [h, m] = c.start.split(":").map(Number);
+      } else {
+        h = Number(c.start);
+      }
+      
+      let eh = 0, em = 0;
+      if (c.end && String(c.end).includes(":")) {
+        [eh, em] = c.end.split(":").map(Number);
+      } else {
+        eh = Number(c.end);
+      }
+
+      let classDayIndex = dayMap[c.day];
+      let daysUntil = classDayIndex - now.getDay();
+      
+      let classEndDate = new Date(now);
+      classEndDate.setHours(eh, em, 0, 0);
+
+      if (daysUntil < 0) {
+        daysUntil += 7;
+      }
+
+      // ถ้าเป็นวันนี้แต่เวลาเรียนจบไปแล้ว ให้ปัดเป็นสัปดาห์หน้า
+      if (daysUntil === 0 && now.getTime() > classEndDate.getTime()) {
+        daysUntil += 7;
+      }
+
+      let classDate = new Date(now);
+      classDate.setDate(classDate.getDate() + daysUntil);
+      classDate.setHours(h, m, 0, 0);
+
+      return { ...c, nextOccurrence: classDate.getTime(), daysUntil };
+    });
+
+    classesWithNextDate.sort((a, b) => a.nextOccurrence - b.nextOccurrence);
+    setNextClass(classesWithNextDate[0] || null);
   };
 
-  const calculateNextClass = (data = userTable) => {
-    if (!data || data.length === 0) return;
-    const now = new Date();
-    const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
-
-    const startTimeLimit = getMinutesWithOffset(0);
-    const endTimeLimit = getMinutesWithOffset(24);
-
-    const todayClasses = data
-      .filter((c) => c.day === currentDay)
-      .map((c) => {
-        let h,
-          m = 0;
-        if (c.start && String(c.start).includes(":")) {
-          [h, m] = c.start.split(":").map(Number);
-        } else {
-          h = Number(c.start);
-        }
-        return { ...c, startMinutes: h * 60 + m };
-      })
-      .filter(
-        (c) =>
-          c.startMinutes >= startTimeLimit && c.startMinutes <= endTimeLimit,
-      )
-      .sort((a, b) => a.startMinutes - b.startMinutes);
-
-    const result = todayClasses[0] || null;
-    setNextClass(result);
-  };
-
-  const calculateUpcomingExams = (data = examList) => {
+  const calculateUpcomingExams = (data = examList, currentSemester = selectedTable) => {
+    if (!currentSemester) {
+      setUpcomingExams([]);
+      return;
+    }
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const upcoming = data
       .filter((exam) => {
-        if (!exam.examDate || exam.isHidden) return false; // ข้ามวิชาที่ถูกซ่อน (isHidden) และยังไม่ได้กำหนดวัน
+        if (exam.table !== currentSemester) return false;
+        if (!exam.examDate || exam.isHidden) return false; 
         const [day, month, year] = exam.examDate.split("/");
         const examDateObj = new Date(year, month - 1, day);
         return examDateObj >= now;
@@ -255,17 +297,13 @@ const Dashboard = ({ navigation }) => {
         const dateA = new Date(yearA, monthA - 1, dayA).getTime();
         const dateB = new Date(yearB, monthB - 1, dayB).getTime();
 
-        // 1. ตรวจสอบว่าวันที่ต่างกันหรือไม่ ถ้าต่างกันให้เรียงตามวันที่ก่อน
         if (dateA !== dateB) {
           return dateA - dateB;
         }
 
-        // 2. ถ้าวันที่ตรงกัน ให้เรียงตามเวลาเริ่มสอบ (startTime)
-        // จัดการกรณีที่อาจจะยังไม่ได้กรอกเวลาสอบ ให้ไปอยู่ท้ายๆ
         const timeA = a.startTime ? a.startTime : "23:59";
         const timeB = b.startTime ? b.startTime : "23:59";
 
-        // ใช้ localeCompare ในการเทียบสตริงเวลา "HH:mm" ได้เลย เพราะรูปแบบนี้สามารถเรียงตามตัวอักษรได้
         return timeA.localeCompare(timeB);
       });
 
@@ -274,12 +312,9 @@ const Dashboard = ({ navigation }) => {
 
   const calculateUpcomingActivities = () => {
     const now = new Date();
-    // เซ็ตเวลาของ now เป็นเริ่มวัน เพื่อให้เปรียบเทียบวันที่ได้แม่นยำขึ้น
     const todayStr = now.toDateString();
 
-    // 1. Filter the tasks
     const filtered = tasks.filter((activity) => {
-      // Safe date parsing in case endTimeMs is missing on old data
       let activityDate;
       if (activity.endTimeMs) {
         activityDate = new Date(activity.endTimeMs);
@@ -293,15 +328,11 @@ const Dashboard = ({ navigation }) => {
       const isPending = activity.status === "pending" || !activity.status;
       if (!isPending) return false;
 
-      // 1. สร้าง Date Object ของ "วันที่เริ่มต้น" จาก dateString (DD/MM/YYYY)
       const [day, month, year] = activity.dateString.split("/");
       const startDate = new Date(year, month - 1, day);
-
-      // 2. สร้าง Date Object ของ "วันที่สิ้นสุด" จาก endTimeMs
       const endDate = new Date(activity.endTimeMs);
 
       if (activityFilter === "today") {
-        // 📝 เช็คว่า "วันนี้" ตรงกับ "วันเริ่มต้น" หรือ "วันสิ้นสุด(กรณีข้ามคืน)" หรือไม่
         return (
           startDate.toDateString() === todayStr ||
           endDate.toDateString() === todayStr
@@ -317,7 +348,6 @@ const Dashboard = ({ navigation }) => {
         lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
         lastDayOfWeek.setHours(23, 59, 59, 999);
 
-        // เช็คว่าช่วงเวลาของงาน คาบเกี่ยวกับสัปดาห์นี้หรือไม่
         return startDate <= lastDayOfWeek && endDate >= firstDayOfWeek;
       }
 
@@ -334,7 +364,6 @@ const Dashboard = ({ navigation }) => {
       }
 
       if (activityFilter === "month") {
-        // เช็คว่าเดือนและปีตรงกับเดือนนี้หรือไม่ (เช็คทั้งวันเริ่มและวันจบ)
         const isStartInMonth =
           startDate.getMonth() === now.getMonth() &&
           startDate.getFullYear() === now.getFullYear();
@@ -348,13 +377,9 @@ const Dashboard = ({ navigation }) => {
       return false;
     });
 
-    // 2. SORT the filtered tasks chronologically (Earliest first)
     const sortedActivities = filtered.sort((a, b) => {
       const getSortTime = (item) => {
-        // Priority 1: Use exact timestamp
         if (item.endTimeMs) return item.endTimeMs;
-
-        // Priority 2: Fallback to manual string parsing
         if (item.dateString && item.timeString) {
           try {
             const [day, month, year] = item.dateString.split("/");
@@ -371,39 +396,30 @@ const Dashboard = ({ navigation }) => {
       return getSortTime(a) - getSortTime(b);
     });
 
-    // 3. Set the state
     setUpcomingActivities(sortedActivities);
   };
 
   const getStatusDetails = (activity) => {
     if (!activity) return { label: "Pending", isLate: false };
 
-    // This is the number in milliseconds (used for comparing)
     const nowMs = Date.now();
     let isLate = false;
 
-    // 1. Priority: Check using explicit timestamp (from Planner)
     if (activity.endTimeMs) {
       isLate = nowMs > activity.endTimeMs;
     }
-    // 2. Fallback: Parse the end time from timeString
     else if (activity.timeString && activity.timeString.includes(" - ")) {
       try {
         const parts = activity.timeString.split(" - ");
-        const endTimeStr = parts[1]; // Gets "10:30"
-
-        // FIX: Create a proper Date object to get the year/month/day
+        const endTimeStr = parts[1]; 
         const dateNow = new Date();
         const year = dateNow.getFullYear();
         const month = String(dateNow.getMonth() + 1).padStart(2, "0");
         const day = String(dateNow.getDate()).padStart(2, "0");
-
-        // Constructing: YYYY-MM-DDTHH:mm
         const endTimestamp = new Date(
           `${year}-${month}-${day}T${endTimeStr}`,
         ).getTime();
 
-        // Final check to ensure the date created is valid
         if (!isNaN(endTimestamp)) {
           isLate = nowMs > endTimestamp;
         }
@@ -412,7 +428,6 @@ const Dashboard = ({ navigation }) => {
       }
     }
 
-    // Planner saves status as lowercase "pending", let's capitalize it for the UI
     let displayStatus = activity.status || "Pending";
     if (displayStatus === "pending") displayStatus = "Pending";
 
@@ -466,8 +481,6 @@ const Dashboard = ({ navigation }) => {
   const persistSubjectData = async (newTable, newExams) => {
     try {
       const timestamp = new Date().toISOString();
-      console.log("Saving to AsyncStorage...", newTable.length, "items");
-
       await AsyncStorage.multiSet([
         ["user_table", JSON.stringify(newTable)],
         ["user_exams", JSON.stringify(newExams)],
@@ -475,7 +488,6 @@ const Dashboard = ({ navigation }) => {
       ]);
 
       if (auth.currentUser) {
-        console.log("Saving to Firestore for user:", auth.currentUser.uid);
         const userDocRef = doc(
           db,
           "users",
@@ -492,18 +504,15 @@ const Dashboard = ({ navigation }) => {
           },
           { merge: true },
         );
-        console.log("Firestore Save Success!");
       }
 
       loadData();
     } catch (error) {
-      console.error("Dashboard SAVE ERROR:", error);
       Alert.alert("Error", "ไม่สามารถบันทึกข้อมูลได้: " + error.message);
     }
   };
 
   const handleAddSubject = async () => {
-    // 1. ตรวจสอบค่าว่างของวิชาหลัก
     if (!selectedTableForAdd) {
       Alert.alert("ข้อผิดพลาด", "กรุณาเลือกภาคการศึกษา");
       return;
@@ -520,7 +529,6 @@ const Dashboard = ({ navigation }) => {
       return;
     }
 
-    // 2. ตรวจสอบค่าว่างของแต่ละคาบเรียน
     for (let i = 0; i < sessions.length; i++) {
       if (!sessions[i].type.trim()) {
         Alert.alert(
@@ -534,7 +542,6 @@ const Dashboard = ({ navigation }) => {
       }
     }
 
-    // 3. ตรวจสอบวิชาซ้ำในเทอมเดียวกัน
     const isDuplicateCode = userTable.some(
       (c) =>
         c.code.trim().toUpperCase() === subject.code.trim().toUpperCase() &&
@@ -549,7 +556,6 @@ const Dashboard = ({ navigation }) => {
       return;
     }
 
-    // เตรียมข้อมูลใหม่
     const newEntries = sessions.map((s, index) => ({
       id: s.id.toString().includes(Date.now().toString().substring(0, 5))
         ? s.id
@@ -565,17 +571,6 @@ const Dashboard = ({ navigation }) => {
       end: formatTime(s.endTime),
     }));
 
-    const dayLabels = {
-      Monday: "จันทร์",
-      Tuesday: "อังคาร",
-      Wednesday: "พุธ",
-      Thursday: "พฤหัสบดี",
-      Friday: "ศุกร์",
-      Saturday: "เสาร์",
-      Sunday: "อาทิตย์",
-    };
-
-    // 4. ตรวจสอบเวลาเรียนซ้อนทับกันเองในวิชาเดียวกัน
     for (let i = 0; i < newEntries.length; i++) {
       for (let j = i + 1; j < newEntries.length; j++) {
         if (
@@ -596,7 +591,6 @@ const Dashboard = ({ navigation }) => {
       }
     }
 
-    // 5. ตรวจสอบเวลาซ้อนทับกับวิชาอื่นในตาราง
     let isConflictFound = false;
     let conflictMsg = "";
 
@@ -617,8 +611,6 @@ const Dashboard = ({ navigation }) => {
 
     const executeAdd = () => {
       const updatedTable = [...userTable, ...newEntries];
-
-      // อัปเดตตารางสอบ (Exam List)
       let updatedExams = [...examList];
       const existingExam = updatedExams.find(
         (e) =>
@@ -645,7 +637,6 @@ const Dashboard = ({ navigation }) => {
       Alert.alert("สำเร็จ", "เพิ่มวิชาลงตารางเรียนเรียบร้อยแล้ว");
     };
 
-    // 6. จัดการกรณีเวลาซ้ำซ้อนกับวิชาอื่น (ถามความสมัครใจ)
     if (isConflictFound) {
       Alert.alert(
         "เวลาซ้ำซ้อน",
@@ -686,9 +677,8 @@ const Dashboard = ({ navigation }) => {
       }
       setModalTaskVisible(false);
       Alert.alert("สำเร็จ", "เพิ่มกิจกรรมลงใน Planner เรียบร้อยแล้ว");
-      calculateUpcomingActivities(); // รีเฟรชกิจกรรมทันที
+      calculateUpcomingActivities();
     } catch (error) {
-      console.error("Save Task Error:", error);
       Alert.alert("ข้อผิดพลาด", "ไม่สามารถบันทึกกิจกรรมได้");
     }
   };
@@ -702,8 +692,6 @@ const Dashboard = ({ navigation }) => {
     const startH = startTime.getHours() * 60 + startTime.getMinutes();
     const endH = endTime.getHours() * 60 + endTime.getMinutes();
     let isOvernight = false;
-
-    // Fix: Allow 00:00 as a valid start time.
     let correctedEndTime = new Date(endTime);
 
     if (startH >= endH && (endH !== 0 || startH === 0)) {
@@ -716,7 +704,6 @@ const Dashboard = ({ navigation }) => {
             text: "ยืนยัน",
             onPress: () => {
               isOvernight = true;
-              // Add 1 day to the end time if it's an overnight task
               correctedEndTime.setDate(correctedEndTime.getDate() + 1);
               processTask(true, correctedEndTime);
             },
@@ -736,11 +723,9 @@ const Dashboard = ({ navigation }) => {
       weekday: "long",
     });
 
-    // Create the start timestamp based on activityDate and startTime
     const startTimestamp = new Date(activityDate);
     startTimestamp.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
 
-    // Create the end timestamp based on activityDate and correctedEndTime
     const endTimestamp = new Date(activityDate);
     endTimestamp.setHours(
       correctedEndTime.getHours(),
@@ -760,9 +745,9 @@ const Dashboard = ({ navigation }) => {
       timeString: timeStr,
       note: note,
       status: "pending",
-      isOvernight: isOvernight, // Save overnight status
-      startTimeMs: startTimestamp.getTime(), // Save exact start timestamp
-      endTimeMs: endTimestamp.getTime(), // Save exact end timestamp
+      isOvernight: isOvernight,
+      startTimeMs: startTimestamp.getTime(),
+      endTimeMs: endTimestamp.getTime(),
     };
 
     const executeSave = () => {
@@ -774,7 +759,6 @@ const Dashboard = ({ navigation }) => {
       setCategory("study");
     };
 
-    // 5. Check overlapping (ใช้เวลาเดิมในการตรวจสอบ overlap ไปก่อน)
     const newStart = formatTime(startTime);
     const newEnd = formatTime(endTime);
 
@@ -812,7 +796,6 @@ const Dashboard = ({ navigation }) => {
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
-      {/* Header - Welcome Section */}
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>สวัสดี, {userName}</Text>
         <Text style={styles.dateText}>{formatDateOnly(currentDate)}</Text>
@@ -837,6 +820,17 @@ const Dashboard = ({ navigation }) => {
         </View>
       </View>
 
+      {/* เลือกเทอม (Semester Selector สำหรับแดชบอร์ด) */}
+      {tableList.length > 0 && (
+        <View style={{ marginBottom: 15, zIndex: 10 }}>
+          <CustomDropdown
+            placeholder={selectedTable || "เลือกภาคการศึกษา"}
+            data={tableList}
+            onSelect={(item) => setSelectedTable(item.label)}
+          />
+        </View>
+      )}
+
       {/* คาบเรียนถัดไป */}
       <View style={styles.card}>
         <View
@@ -859,17 +853,22 @@ const Dashboard = ({ navigation }) => {
               },
             ]}
           >
-            คาบเรียนถัดไป (วันนี้)
+            คาบเรียนถัดไป
           </Text>
         </View>
 
         {nextClass ? (
           <View style={[styles.nextClassCard, { backgroundColor: "#C7005C" }]}>
             <View
-              style={{ flexDirection: "row", justifyContent: "space-between" }}
+              style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
             >
-              <View style={[styles.tag, { backgroundColor: "#FF748C" }]}>
-                <Text style={styles.tagText}>{nextClass.type}</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={[styles.tag, { backgroundColor: "#FF748C" }]}>
+                  <Text style={styles.tagText}>{nextClass.type}</Text>
+                </View>
+                <View style={[styles.tag, { backgroundColor: "#FFB8C6" }]}>
+                  <Text style={[styles.tagText, { color: "#C7005C" }]}>{dayLabels[nextClass.day] || nextClass.day}</Text>
+                </View>
               </View>
               <Text style={styles.timeRange}>
                 {nextClass.start} - {nextClass.end}
@@ -923,7 +922,7 @@ const Dashboard = ({ navigation }) => {
                 fontFamily: "Inter_400Regular",
               }}
             >
-              พักผ่อนได้ ไม่มีเรียนแล้ววันนี้
+              ยังไม่มีวิชาเรียนในเทอมนี้
             </Text>
           </View>
         )}
@@ -989,7 +988,7 @@ const Dashboard = ({ navigation }) => {
                   marginVertical: 5,
                 }}
               >
-                {exam.code} {exam.name} ({exam.table})
+                {exam.code} {exam.name}
               </Text>
               <View
                 style={{
@@ -1032,7 +1031,7 @@ const Dashboard = ({ navigation }) => {
                 fontFamily: "Inter_400Regular",
               }}
             >
-              ไม่มีสอบเร็วๆ นี้
+              ไม่มีสอบในเทอมนี้
             </Text>
           </View>
         )}
@@ -1064,7 +1063,6 @@ const Dashboard = ({ navigation }) => {
             งาน / กิจกรรม
           </Text>
 
-          {/* Filter Dropdown Toggle Button */}
           <TouchableOpacity
             style={{ flexDirection: "row", alignItems: "center" }}
             onPress={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -1092,7 +1090,6 @@ const Dashboard = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Filter Dropdown Menu */}
         {showFilterDropdown && (
           <View
             style={{
@@ -1226,8 +1223,7 @@ const Dashboard = ({ navigation }) => {
                     ]}
                   >
                     <Text style={styles.tagText}>
-                      {statusLabel}{" "}
-                      {/* Uses the label returned by our function */}
+                      {statusLabel}
                     </Text>
                   </View>
                   <Text
@@ -1854,7 +1850,7 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: "row", alignItems: "center" },
   roomText: { color: "#EA3287", fontSize: 15, fontFamily: "Inter_400Regular" },
 
-  quickAddSection: { marginBottom: 40 },
+  quickAddSection: { marginBottom: 20 },
   buttonRow: { flexDirection: "row", justifyContent: "space-between" },
   quickBtn: {
     backgroundColor: "#FFF",
