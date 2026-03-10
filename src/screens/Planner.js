@@ -311,6 +311,23 @@ const Planner = () => {
 
   // ใน Planner.js
   const handleSaveActivity = async () => {
+    // 1. เช็คว่ากรอกชื่อกิจกรรมหรือยัง
+    if (!activityName.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
+      return;
+    }
+
+    // ================= เพิ่มส่วนตรวจสอบเวลาตรงนี้ =================
+    const startMinutes = startTime.getHours() * 60 + startTime.getMinutes();
+    const endMinutes = endTime.getHours() * 60 + endTime.getMinutes();
+
+    if (startMinutes >= endMinutes) {
+      Alert.alert(
+        "เวลาไม่ถูกต้อง", 
+        "เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุดนะขอรับ"
+      );
+      return; // หยุดการทำงาน ไม่ให้บันทึก
+    }
     if (!activityName.trim()) {
       Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
       return;
