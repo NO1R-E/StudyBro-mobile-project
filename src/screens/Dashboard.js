@@ -93,7 +93,7 @@ const Dashboard = ({ navigation }) => {
   const [activityDate, setActivityDate] = useState(new Date());
   const [startTime, setStartTime] = useState(getDefaultStartTime());
   const [endTime, setEndTime] = useState(getDefaultEndTime());
-  
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
@@ -107,9 +107,12 @@ const Dashboard = ({ navigation }) => {
 
   useEffect(() => {
     if (selectedSemesterForTask) {
-      const subjectsInTerm = userTable.filter((s) => s.table === selectedSemesterForTask);
-      const uniqueSubjects = Array.from(new Set(subjectsInTerm.map((s) => s.name)))
-        .map((name) => subjectsInTerm.find((s) => s.name === name));
+      const subjectsInTerm = userTable.filter(
+        (s) => s.table === selectedSemesterForTask,
+      );
+      const uniqueSubjects = Array.from(
+        new Set(subjectsInTerm.map((s) => s.name)),
+      ).map((name) => subjectsInTerm.find((s) => s.name === name));
       setFilteredSubjectsForTask(uniqueSubjects);
     } else {
       setFilteredSubjectsForTask([]);
@@ -260,8 +263,21 @@ const calculateUpcomingActivities = () => {
     // เซ็ตเวลาของ now เป็นเริ่มวัน เพื่อให้เปรียบเทียบวันที่ได้แม่นยำขึ้น
     const todayStr = now.toDateString();
 
+    // 1. Filter the tasks
+    // REMOVED the duplicate 'const filtered' lines here
     const filtered = tasks.filter((activity) => {
-      const isPending = activity.status === "pending";
+      // Safe date parsing in case endTimeMs is missing on old data
+      let activityDate;
+      if (activity.endTimeMs) {
+        activityDate = new Date(activity.endTimeMs);
+      } else if (activity.dateString) {
+        const [day, month, year] = activity.dateString.split("/");
+        activityDate = new Date(year, month - 1, day);
+      } else {
+        activityDate = new Date();
+      }
+
+      const isPending = activity.status === "pending" || !activity.status;
       if (!isPending) return false;
 
       // 1. สร้าง Date Object ของ "วันที่เริ่มต้น" จาก dateString (DD/MM/YYYY)
@@ -317,9 +333,80 @@ const calculateUpcomingActivities = () => {
       }
 
       return false;
+    }); // Added the missing closing brace here
+
+    // 2. SORT the filtered tasks chronologically (Earliest first)
+    const sortedActivities = filtered.sort((a, b) => {
+      const getSortTime = (item) => {
+        // Priority 1: Use exact timestamp
+        if (item.endTimeMs) return item.endTimeMs;
+
+        // Priority 2: Fallback to manual string parsing
+        if (item.dateString && item.timeString) {
+          try {
+            const [day, month, year] = item.dateString.split("/");
+            const startTimeStr = item.timeString.split(" - ")[0];
+            const [hours, minutes] = startTimeStr.split(":");
+            return new Date(year, month - 1, day, hours, minutes).getTime();
+          } catch (e) {
+            return 0;
+          }
+        }
+        return 0;
+      };
+
+      return getSortTime(a) - getSortTime(b);
     });
 
-    setUpcomingActivities(filtered);
+    // 3. Set the state
+    setUpcomingActivities(sortedActivities);
+  };
+
+  const getStatusDetails = (activity) => {
+    if (!activity) return { label: "Pending", isLate: false };
+
+    // This is the number in milliseconds (used for comparing)
+    const nowMs = Date.now();
+    let isLate = false;
+
+    // 1. Priority: Check using explicit timestamp (from Planner)
+    if (activity.endTimeMs) {
+      isLate = nowMs > activity.endTimeMs;
+    }
+    // 2. Fallback: Parse the end time from timeString
+    else if (activity.timeString && activity.timeString.includes(" - ")) {
+      try {
+        const parts = activity.timeString.split(" - ");
+        const endTimeStr = parts[1]; // Gets "10:30"
+
+        // FIX: Create a proper Date object to get the year/month/day
+        const dateNow = new Date();
+        const year = dateNow.getFullYear();
+        const month = String(dateNow.getMonth() + 1).padStart(2, "0");
+        const day = String(dateNow.getDate()).padStart(2, "0");
+
+        // Constructing: YYYY-MM-DDTHH:mm
+        const endTimestamp = new Date(
+          `${year}-${month}-${day}T${endTimeStr}`,
+        ).getTime();
+
+        // Final check to ensure the date created is valid
+        if (!isNaN(endTimestamp)) {
+          isLate = nowMs > endTimestamp;
+        }
+      } catch (e) {
+        console.error("Error parsing timeString:", e);
+      }
+    }
+
+    // Planner saves status as lowercase "pending", let's capitalize it for the UI
+    let displayStatus = activity.status || "Pending";
+    if (displayStatus === "pending") displayStatus = "Pending";
+
+    return {
+      label: isLate ? "Late" : displayStatus,
+      isLate: isLate,
+    };
   };
 
   const getEmptyMessage = () => {
@@ -569,8 +656,18 @@ const calculateUpcomingActivities = () => {
         ["last_updated_planner", timestamp],
       ]);
       if (auth.currentUser) {
-        const userDocRef = doc(db, "users", auth.currentUser.uid, "planner", "data");
-        await setDoc(userDocRef, { tasks: newTasks, lastUpdated: timestamp }, { merge: true });
+        const userDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "planner",
+          "data",
+        );
+        await setDoc(
+          userDocRef,
+          { tasks: newTasks, lastUpdated: timestamp },
+          { merge: true },
+        );
       }
       loadData(); // ดึงข้อมูลมาแสดงใหม่บน Dashboard ทันที
     } catch (error) {
@@ -587,12 +684,19 @@ const calculateUpcomingActivities = () => {
     const newStart = formatTime(startTime);
     const newEnd = formatTime(endTime);
     const dateStr = formatDate(activityDate);
-    const dayName = activityDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayName = activityDate.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
 
     const executeSave = async () => {
       try {
         const finalActivityDate = new Date(activityDate);
-        finalActivityDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+        finalActivityDate.setHours(
+          endTime.getHours(),
+          endTime.getMinutes(),
+          0,
+          0,
+        );
 
         const taskData = {
           id: Date.now().toString(),
@@ -621,11 +725,17 @@ const calculateUpcomingActivities = () => {
     const hasActivityConflict = tasks.some(
       (t) =>
         t.dateString === dateStr &&
-        isOverlapping(newStart, newEnd, t.timeString.split(" - ")[0], t.timeString.split(" - ")[1])
+        isOverlapping(
+          newStart,
+          newEnd,
+          t.timeString.split(" - ")[0],
+          t.timeString.split(" - ")[1],
+        ),
     );
 
     const classConflict = userTable.find(
-      (c) => c.day === dayName && isOverlapping(newStart, newEnd, c.start, c.end)
+      (c) =>
+        c.day === dayName && isOverlapping(newStart, newEnd, c.start, c.end),
     );
 
     if (hasActivityConflict || classConflict) {
@@ -958,66 +1068,103 @@ const calculateUpcomingActivities = () => {
         )}
 
         {upcomingActivities.length > 0 ? (
-          upcomingActivities.map((activity) => (
-            <View
-              key={activity.id}
-              style={{
-                backgroundColor: "#FDF2F8",
-                borderColor: "#FCCEE8",
-                borderWidth: 2,
-                borderRadius: 12,
-                padding: 15,
-                marginBottom: 10,
-              }}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.tag, { backgroundColor: "#EA3287" }]}>
-                  <Text style={styles.tagText}>Activity</Text>
-                </View>
-                <Text style={{ color: "#C7005C", fontWeight: "600" }}>
-                  {activity.dateString}
-                </Text>
-              </View>
+          upcomingActivities.map((activity) => {
+            // 1. Safety check: skip if activity is null/undefined
+            if (!activity) return null;
 
-              <Text
-                style={{
-                  color: "#EA3287",
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  marginVertical: 5,
-                }}
-              >
-                {activity.title}
-              </Text>
+            // 2. Pass the WHOLE activity object so the function can see activity.timeString
+            const status = getStatusDetails(activity);
 
+            // 3. Define isLate where the rest of the component can see it
+            const isLate = status.isLate;
+
+            return (
               <View
+                key={activity.id}
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  backgroundColor: isLate ? "#FFF5F5" : "#FDF2F8",
+                  borderColor: isLate ? "#FF7675" : "#FCCEE8",
+                  borderWidth: 2,
+                  borderRadius: 12,
+                  padding: 15,
+                  marginBottom: 10,
                 }}
               >
-                <View style={styles.locationRow}>
-                  <Foundation
-                    name="clipboard-notes"
-                    size={16}
-                    color="#EA3287"
-                  />
-                  <Text style={{ color: "#EA3287", fontSize: 15 }}>
-                    {" "}
-                    Note: {activity.note || "ไม่ได้ระบุ"}
+                <View style={styles.cardHeader}>
+                  <View
+                    style={[
+                      styles.tag,
+                      { backgroundColor: isLate ? "#D63031" : "#EA3287" },
+                    ]}
+                  >
+                    <Text style={styles.tagText}>
+                      {status.label}{" "}
+                      {/* Uses the label returned by our function */}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: isLate ? "#D63031" : "#C7005C",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {activity.dateString}
                   </Text>
                 </View>
 
                 <Text
-                  style={{ color: "#EA3287", fontSize: 14, fontWeight: "600" }}
+                  style={{
+                    color: isLate ? "#D63031" : "#EA3287",
+                    fontSize: 18,
+                    fontWeight: "bold",
+                    marginVertical: 5,
+                  }}
                 >
-                  {activity.timeString} น.{activity.isOvernight ? "(ข้ามคืน)" : ""}
-                  
+                  {activity.timeString} น.
+                  {activity.isOvernight ? "(ข้ามคืน)" : ""}
                 </Text>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <View style={styles.locationRow}>
+                    <Foundation
+                      name="clipboard-notes"
+                      size={16}
+                      color={isLate ? "#D63031" : "#EA3287"}
+                    />
+                    <Text
+                      style={{
+                        color: isLate ? "#D63031" : "#EA3287",
+                        fontSize: 15,
+                      }}
+                    >
+                      {" "}
+                      : {activity.category || "ไม่ได้ระบุ"}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={{
+                      color: isLate ? "#D63031" : "#EA3287",
+                      fontSize: 14,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {/* Added a fallback check for timeString to prevent crashes */}
+                    {activity.timeString
+                      ? activity.timeString.split("-")[0]
+                      : "--:--"}{" "}
+                    น.
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         ) : (
           <View
             style={{
@@ -1301,32 +1448,94 @@ const calculateUpcomingActivities = () => {
       </Modal>
 
       {/* ================= MODAL เพิ่มงาน ================= */}
-      <Modal animationType="fade" transparent={true} visible={modalTaskVisible} onRequestClose={() => setModalTaskVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalTaskVisible}
+        onRequestClose={() => setModalTaskVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>เพิ่มกิจกรรมใหม่</Text>
-            
+
             <Text style={styles.label}>ชื่อกิจกรรม</Text>
-            <TextInput style={styles.input} placeholder="ชื่อกิจกรรม (เช่น ส่งใบงาน)" value={activityName} onChangeText={setActivityName} />
+            <TextInput
+              style={styles.input}
+              placeholder="ชื่อกิจกรรม (เช่น ส่งใบงาน)"
+              value={activityName}
+              onChangeText={setActivityName}
+            />
 
             <Text style={styles.label}>หมวดหมู่กิจกรรม</Text>
             <View style={styles.categoryRow}>
-              <TouchableOpacity style={[styles.categoryButton, category === "study" && styles.categoryButtonActive]} onPress={() => setCategory("study")}>
-                <Text style={[styles.categoryText, category === "study" && styles.categoryTextActive]}>📖 วิชาเรียน</Text>
+              <TouchableOpacity
+                style={[
+                  styles.categoryButton,
+                  category === "study" && styles.categoryButtonActive,
+                ]}
+                onPress={() => setCategory("study")}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    category === "study" && styles.categoryTextActive,
+                  ]}
+                >
+                  📖 วิชาเรียน
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.categoryButton, category === "other" && styles.categoryButtonActive]} onPress={() => { setCategory("other"); setSelectedSubjectForTask(""); setSelectedSemesterForTask(""); }}>
-                <Text style={[styles.categoryText, category === "other" && styles.categoryTextActive]}>⚽️ อื่นๆ</Text>
+              <TouchableOpacity
+                style={[
+                  styles.categoryButton,
+                  category === "other" && styles.categoryButtonActive,
+                ]}
+                onPress={() => {
+                  setCategory("other");
+                  setSelectedSubjectForTask("");
+                  setSelectedSemesterForTask("");
+                }}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    category === "other" && styles.categoryTextActive,
+                  ]}
+                >
+                  ⚽️ อื่นๆ
+                </Text>
               </TouchableOpacity>
             </View>
 
             {category === "study" && (
               <>
                 <Text style={styles.label}>เลือกปีการศึกษา (Semester)</Text>
-                <View style={[styles.pickerWrapper, { marginBottom: 10, backgroundColor: "#F1F2F6", borderWidth: 0 }]}>
-                  <Picker selectedValue={selectedSemesterForTask} onValueChange={(val) => { setSelectedSemesterForTask(val); setNote(`ปีการศึกษา: ${val}`); }}>
+                <View
+                  style={[
+                    styles.pickerWrapper,
+                    {
+                      marginBottom: 10,
+                      backgroundColor: "#F1F2F6",
+                      borderWidth: 0,
+                    },
+                  ]}
+                >
+                  <Picker
+                    selectedValue={selectedSemesterForTask}
+                    onValueChange={(val) => {
+                      setSelectedSemesterForTask(val);
+                      setNote(`ปีการศึกษา: ${val}`);
+                    }}
+                  >
                     <Picker.Item label="-- เลือกเทอม --" value="" />
                     {tableList.map((item, index) => (
-                      <Picker.Item key={index} label={item.label} value={item.label} />
+                      <Picker.Item
+                        key={index}
+                        label={item.label}
+                        value={item.label}
+                      />
                     ))}
                   </Picker>
                 </View>
@@ -1334,11 +1543,30 @@ const calculateUpcomingActivities = () => {
                 {selectedSemesterForTask !== "" && (
                   <>
                     <Text style={styles.label}>เลือกวิชาในเทอมนี้</Text>
-                    <View style={[styles.pickerWrapper, { marginBottom: 10, backgroundColor: "#F1F2F6", borderWidth: 0 }]}>
-                      <Picker selectedValue={selectedSubjectForTask} onValueChange={(val) => { setSelectedSubjectForTask(val); setActivityName(val); }}>
+                    <View
+                      style={[
+                        styles.pickerWrapper,
+                        {
+                          marginBottom: 10,
+                          backgroundColor: "#F1F2F6",
+                          borderWidth: 0,
+                        },
+                      ]}
+                    >
+                      <Picker
+                        selectedValue={selectedSubjectForTask}
+                        onValueChange={(val) => {
+                          setSelectedSubjectForTask(val);
+                          setActivityName(val);
+                        }}
+                      >
                         <Picker.Item label="-- เลือกรายวิชา --" value="" />
                         {filteredSubjectsForTask.map((item, index) => (
-                          <Picker.Item key={index} label={item.name} value={item.name} />
+                          <Picker.Item
+                            key={index}
+                            label={item.name}
+                            value={item.name}
+                          />
                         ))}
                       </Picker>
                     </View>
@@ -1348,10 +1576,19 @@ const calculateUpcomingActivities = () => {
             )}
 
             <Text style={styles.label}>รายละเอียดเพิ่มเติม</Text>
-            <TextInput style={[styles.input, { height: 80, textAlignVertical: "top" }]} placeholder="จดบันทึกรายละเอียด..." multiline value={note} onChangeText={setNote} />
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+              placeholder="จดบันทึกรายละเอียด..."
+              multiline
+              value={note}
+              onChangeText={setNote}
+            />
 
             <Text style={styles.label}>วันที่</Text>
-            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowDatePicker(true)}>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
               <Text style={styles.pickerText}>{formatDate(activityDate)}</Text>
               <Ionicons name="calendar-outline" size={20} color="gray" />
             </TouchableOpacity>
@@ -1359,36 +1596,77 @@ const calculateUpcomingActivities = () => {
             <View style={styles.rowInputs}>
               <View style={{ flex: 1, marginRight: 5 }}>
                 <Text style={styles.label}>เวลาเริ่ม</Text>
-                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowStartTimePicker(true)}>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => setShowStartTimePicker(true)}
+                >
                   <Text style={styles.pickerText}>{formatTime(startTime)}</Text>
                   <Ionicons name="time-outline" size={20} color="gray" />
                 </TouchableOpacity>
               </View>
               <View style={{ flex: 1, marginLeft: 5 }}>
                 <Text style={styles.label}>เวลาสิ้นสุด</Text>
-                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowEndTimePicker(true)}>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => setShowEndTimePicker(true)}
+                >
                   <Text style={styles.pickerText}>{formatTime(endTime)}</Text>
                   <Ionicons name="time-outline" size={20} color="gray" />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {showDatePicker && <DateTimePicker value={activityDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if (d) setActivityDate(d); }} />}
-            {showStartTimePicker && <DateTimePicker value={startTime} mode="time" display="default" onChange={(e, t) => { setShowStartTimePicker(false); if (t) setStartTime(t); }} />}
-            {showEndTimePicker && <DateTimePicker value={endTime} mode="time" display="default" onChange={(e, t) => { setShowEndTimePicker(false); if (t) setEndTime(t); }} />}
+            {showDatePicker && (
+              <DateTimePicker
+                value={activityDate}
+                mode="date"
+                display="default"
+                onChange={(e, d) => {
+                  setShowDatePicker(false);
+                  if (d) setActivityDate(d);
+                }}
+              />
+            )}
+            {showStartTimePicker && (
+              <DateTimePicker
+                value={startTime}
+                mode="time"
+                display="default"
+                onChange={(e, t) => {
+                  setShowStartTimePicker(false);
+                  if (t) setStartTime(t);
+                }}
+              />
+            )}
+            {showEndTimePicker && (
+              <DateTimePicker
+                value={endTime}
+                mode="time"
+                display="default"
+                onChange={(e, t) => {
+                  setShowEndTimePicker(false);
+                  if (t) setEndTime(t);
+                }}
+              />
+            )}
 
             <View style={styles.modalButtonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalTaskVisible(false)}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setModalTaskVisible(false)}
+              >
                 <Text style={styles.cancelButtonText}>ยกเลิก</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSaveTask}>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveTask}
+              >
                 <Text style={styles.saveButtonText}>บันทึกงาน</Text>
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
     </ScrollView>
   );
 };
@@ -1560,17 +1838,44 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 16 },
   cancelBtn: { padding: 10, alignItems: "center" },
   cancelBtnText: { color: "#9B7B8E", fontFamily: "Inter_700Bold" },
-  
+
   // Styles สำหรับ Modal เพิ่มงาน
-  categoryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
-  categoryButton: { flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: "#EEEEEE", alignItems: "center", marginHorizontal: 5, backgroundColor: "#F1F2F6" },
+  categoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  categoryButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#EEEEEE",
+    alignItems: "center",
+    marginHorizontal: 5,
+    backgroundColor: "#F1F2F6",
+  },
   categoryButtonActive: { backgroundColor: "#FCE4EC", borderColor: "#E91E63" },
   categoryText: { fontSize: 13, color: "#9E9E9E", fontFamily: "Inter_700Bold" },
   categoryTextActive: { color: "#C7005C" },
   rowInputs: { flexDirection: "row" },
   modalButtonRow: { flexDirection: "row", marginTop: 15 },
-  cancelButton: { flex: 1, backgroundColor: "#F1F2F6", padding: 15, borderRadius: 12, marginRight: 5, alignItems: "center" },
-  saveButton: { flex: 1, backgroundColor: "#C7005C", padding: 15, borderRadius: 12, marginLeft: 5, alignItems: "center" },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#F1F2F6",
+    padding: 15,
+    borderRadius: 12,
+    marginRight: 5,
+    alignItems: "center",
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: "#C7005C",
+    padding: 15,
+    borderRadius: 12,
+    marginLeft: 5,
+    alignItems: "center",
+  },
 });
 
 export default Dashboard;
