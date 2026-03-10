@@ -224,10 +224,21 @@ const Dashboard = ({ navigation }) => {
 
   const calculateUpcomingActivities = () => {
     const now = new Date();
-    const filtered = tasks.filter((activity) => {
-      const activityDate = new Date(activity.endTimeMs);
-      const isPending = activity.status === "pending";
 
+    // 1. Filter the tasks
+    const filtered = tasks.filter((activity) => {
+      // Safe date parsing in case endTimeMs is missing on old data
+      let activityDate;
+      if (activity.endTimeMs) {
+        activityDate = new Date(activity.endTimeMs);
+      } else if (activity.dateString) {
+        const [day, month, year] = activity.dateString.split("/");
+        activityDate = new Date(year, month - 1, day);
+      } else {
+        activityDate = new Date();
+      }
+
+      const isPending = activity.status === "pending" || !activity.status;
       if (!isPending) return false;
 
       if (activityFilter === "today") {
@@ -249,7 +260,75 @@ const Dashboard = ({ navigation }) => {
       return false;
     });
 
-    setUpcomingActivities(filtered);
+    // 2. SORT the filtered tasks chronologically (Closest to Furthest)
+    const sortedActivities = filtered.sort((a, b) => {
+      const getSortTime = (item) => {
+        // Priority 1: Use exact timestamp if we have it
+        if (item.endTimeMs) return item.endTimeMs;
+
+        // Priority 2: Fallback to manual string parsing (DD/MM/YYYY & HH:mm)
+        if (item.dateString && item.timeString) {
+          const [day, month, year] = item.dateString.split("/");
+          const startTimeStr = item.timeString.split(" - ")[0];
+          const [hours, minutes] = startTimeStr.split(":");
+          return new Date(year, month - 1, day, hours, minutes).getTime();
+        }
+        return 0; // Absolute fallback
+      };
+
+      // Ascending order: lowest timestamp (earliest) comes first
+      return getSortTime(a) - getSortTime(b);
+    });
+
+    // 3. Set the state with the newly sorted array
+    setUpcomingActivities(sortedActivities);
+  };
+
+  const getStatusDetails = (activity) => {
+    if (!activity) return { label: "Pending", isLate: false };
+
+    // This is the number in milliseconds (used for comparing)
+    const nowMs = Date.now();
+    let isLate = false;
+
+    // 1. Priority: Check using explicit timestamp (from Planner)
+    if (activity.endTimeMs) {
+      isLate = nowMs > activity.endTimeMs;
+    }
+    // 2. Fallback: Parse the end time from timeString
+    else if (activity.timeString && activity.timeString.includes(" - ")) {
+      try {
+        const parts = activity.timeString.split(" - ");
+        const endTimeStr = parts[1]; // Gets "10:30"
+
+        // FIX: Create a proper Date object to get the year/month/day
+        const dateNow = new Date();
+        const year = dateNow.getFullYear();
+        const month = String(dateNow.getMonth() + 1).padStart(2, "0");
+        const day = String(dateNow.getDate()).padStart(2, "0");
+
+        // Constructing: YYYY-MM-DDTHH:mm
+        const endTimestamp = new Date(
+          `${year}-${month}-${day}T${endTimeStr}`,
+        ).getTime();
+
+        // Final check to ensure the date created is valid
+        if (!isNaN(endTimestamp)) {
+          isLate = nowMs > endTimestamp;
+        }
+      } catch (e) {
+        console.error("Error parsing timeString:", e);
+      }
+    }
+
+    // Planner saves status as lowercase "pending", let's capitalize it for the UI
+    let displayStatus = activity.status || "Pending";
+    if (displayStatus === "pending") displayStatus = "Pending";
+
+    return {
+      label: isLate ? "Late" : displayStatus,
+      isLate: isLate,
+    };
   };
 
   const getEmptyMessage = () => {
@@ -794,65 +873,102 @@ const Dashboard = ({ navigation }) => {
         )}
 
         {upcomingActivities.length > 0 ? (
-          upcomingActivities.map((activity) => (
-            <View
-              key={activity.id}
-              style={{
-                backgroundColor: "#FDF2F8",
-                borderColor: "#FCCEE8",
-                borderWidth: 2,
-                borderRadius: 12,
-                padding: 15,
-                marginBottom: 10,
-              }}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.tag, { backgroundColor: "#EA3287" }]}>
-                  <Text style={styles.tagText}>Activity</Text>
-                </View>
-                <Text style={{ color: "#C7005C", fontWeight: "600" }}>
-                  {activity.dateString}
-                </Text>
-              </View>
+          upcomingActivities.map((activity) => {
+            // 1. Safety check: skip if activity is null/undefined
+            if (!activity) return null;
 
-              <Text
-                style={{
-                  color: "#EA3287",
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  marginVertical: 5,
-                }}
-              >
-                {activity.title}
-              </Text>
+            // 2. Pass the WHOLE activity object so the function can see activity.timeString
+            const status = getStatusDetails(activity);
 
+            // 3. Define isLate where the rest of the component can see it
+            const isLate = status.isLate;
+
+            return (
               <View
+                key={activity.id}
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  backgroundColor: isLate ? "#FFF5F5" : "#FDF2F8",
+                  borderColor: isLate ? "#FF7675" : "#FCCEE8",
+                  borderWidth: 2,
+                  borderRadius: 12,
+                  padding: 15,
+                  marginBottom: 10,
                 }}
               >
-                <View style={styles.locationRow}>
-                  <Foundation
-                    name="clipboard-notes"
-                    size={16}
-                    color="#EA3287"
-                  />
-                  <Text style={{ color: "#EA3287", fontSize: 15 }}>
-                    {" "}
-                    Note: {activity.note || "ไม่ได้ระบุ"}
+                <View style={styles.cardHeader}>
+                  <View
+                    style={[
+                      styles.tag,
+                      { backgroundColor: isLate ? "#D63031" : "#EA3287" },
+                    ]}
+                  >
+                    <Text style={styles.tagText}>
+                      {status.label}{" "}
+                      {/* Uses the label returned by our function */}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: isLate ? "#D63031" : "#C7005C",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {activity.dateString}
                   </Text>
                 </View>
 
                 <Text
-                  style={{ color: "#EA3287", fontSize: 14, fontWeight: "600" }}
+                  style={{
+                    color: isLate ? "#D63031" : "#EA3287",
+                    fontSize: 18,
+                    fontWeight: "bold",
+                    marginVertical: 5,
+                  }}
                 >
-                  {activity.timeString.split("-")[0]} น.
+                  {activity.title}
                 </Text>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <View style={styles.locationRow}>
+                    <Foundation
+                      name="clipboard-notes"
+                      size={16}
+                      color={isLate ? "#D63031" : "#EA3287"}
+                    />
+                    <Text
+                      style={{
+                        color: isLate ? "#D63031" : "#EA3287",
+                        fontSize: 15,
+                      }}
+                    >
+                      {" "}
+                      Note: {activity.note || "ไม่ได้ระบุ"}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={{
+                      color: isLate ? "#D63031" : "#EA3287",
+                      fontSize: 14,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {/* Added a fallback check for timeString to prevent crashes */}
+                    {activity.timeString
+                      ? activity.timeString.split("-")[0]
+                      : "--:--"}{" "}
+                    น.
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         ) : (
           <View
             style={{
@@ -1126,7 +1242,6 @@ const Dashboard = ({ navigation }) => {
                 style={styles.cancelBtn}
                 onPress={() => {
                   setModalSubjectVisible(false);
-                  
                 }}
               >
                 <Text style={styles.cancelBtnText}>ยกเลิก</Text>
