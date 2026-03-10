@@ -37,16 +37,15 @@ const Planner = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
 
-  // Planner.js
-  const [allTableData, setAllTableData] = useState([]); // ข้อมูลตารางเรียนทั้งหมด
-  const [uniqueSubjectNames, setUniqueSubjectNames] = useState([]); // รายชื่อวิชาที่ไม่ซ้ำ
-  const [availableSemesters, setAvailableSemesters] = useState([]); // เทอมที่มีวิชานั้นๆ
-  const [selectedSubjectName, setSelectedSubjectName] = useState(""); // วิชาที่เลือกจาก dropdown
-  // เพิ่มต่อจาก State เดิมใน Planner.js
+  const [allTableData, setAllTableData] = useState([]);
+  const [uniqueSubjectNames, setUniqueSubjectNames] = useState([]);
+  const [availableSemesters, setAvailableSemesters] = useState([]);
+  const [selectedSubjectName, setSelectedSubjectName] = useState("");
+  
   const [semesterList, setSemesterList] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState("");
-  const [allSubjects, setAllSubjects] = useState([]); // เก็บวิชาทั้งหมดจากตารางเรียน
-  const [filteredSubjects, setFilteredSubjects] = useState([]); // เก็บวิชาที่กรองตาม Semester
+  const [allSubjects, setAllSubjects] = useState([]);
+  const [filteredSubjects, setFilteredSubjects] = useState([]);
   const [selectedTerm, setSelectedTerm] = useState("");
   const [activityDate, setActivityDate] = useState(new Date());
   const [startTime, setStartTime] = useState(new Date());
@@ -69,22 +68,15 @@ const Planner = () => {
 
   const [tasks, setTasks] = useState([]);
 
-  // อัปเดตเวลาปัจจุบัน
-  //const [currentTime, setCurrentTime] = useState(Date.now());
-
-  //ดึงข้อมูลจากเครื่องมาแสดงครั้งแรก
-
   const persistTasks = async (newTasks) => {
     try {
       const timestamp = new Date().toISOString();
 
-      // Update Local Storage
       await AsyncStorage.multiSet([
         ["myTasks", JSON.stringify(newTasks)],
         ["last_updated_planner", timestamp],
       ]);
 
-      // Update Firestore if user is logged in
       if (auth.currentUser) {
         const userDocRef = doc(
           db,
@@ -107,6 +99,7 @@ const Planner = () => {
       console.error("Sync Error:", error);
     }
   };
+
   const handleEditTask = (task) => {
     if (task.status !== "pending") {
       Alert.alert(
@@ -149,7 +142,6 @@ const Planner = () => {
     useCallback(() => {
       const loadAndSync = async () => {
         try {
-          // Pull local data
           const localTasks = await AsyncStorage.getItem("myTasks");
           const localTS = await AsyncStorage.getItem("last_updated_planner");
 
@@ -171,7 +163,6 @@ const Planner = () => {
               const cloudData = docSnap.data();
               const cloudTS = cloudData.lastUpdated;
 
-              // Logic: If Cloud is newer than Local, or Local doesn't exist
               const isCloudNewer =
                 !localTS || new Date(cloudTS) > new Date(localTS);
 
@@ -192,6 +183,7 @@ const Planner = () => {
       loadAndSync();
     }, []),
   );
+
   useFocusEffect(
     useCallback(() => {
       const loadTimetableData = async () => {
@@ -208,15 +200,14 @@ const Planner = () => {
       loadTimetableData();
     }, []),
   );
+
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
         try {
-          // โหลดข้อมูล Planner เดิม
           const storedTasks = await AsyncStorage.getItem("user_tasks");
           if (storedTasks) setTasks(JSON.parse(storedTasks));
 
-          // โหลดข้อมูลจาก Timetable
           const localTable = await AsyncStorage.getItem("user_table");
           const localList = await AsyncStorage.getItem("user_table_list");
 
@@ -229,9 +220,9 @@ const Planner = () => {
       loadData();
     }, []),
   );
+
   useEffect(() => {
     if (selectedSemester) {
-      // กรองวิชาที่มีใน Semester ที่เลือก (เอาเฉพาะชื่อวิชาที่ไม่ซ้ำกัน)
       const subjectsInTerm = allSubjects.filter(
         (s) => s.table === selectedSemester,
       );
@@ -243,13 +234,12 @@ const Planner = () => {
       setFilteredSubjects([]);
     }
   }, [selectedSemester, allSubjects]);
+
   useEffect(() => {
     if (selectedSemester) {
-      // กรองวิชาที่มีชื่อเทอมตรงกับที่เลือก
       const subjectsInTerm = allTableData.filter(
         (item) => item.table === selectedSemester,
       );
-      // เอาเฉพาะชื่อวิชาที่ไม่ซ้ำกัน
       const uniqueNames = Array.from(
         new Set(subjectsInTerm.map((s) => s.name)),
       );
@@ -259,13 +249,12 @@ const Planner = () => {
       setSelectedSubjectName("");
     }
   }, [selectedSemester, allTableData]);
+
   useEffect(() => {
     if (allSubjects.length > 0) {
-      // ดึงชื่อวิชาไม่ซ้ำ
       const uniqueNames = [...new Set(allSubjects.map((s) => s.name))];
       setUniqueSubjectNames(uniqueNames);
 
-      // ดึง semester ไม่ซ้ำ
       const semesters = [...new Set(allSubjects.map((s) => s.table))];
       setAvailableSemesters(semesters);
     }
@@ -305,12 +294,11 @@ const Planner = () => {
 
   const formatDate = (dateObj) =>
     `${dateObj.getDate().toString().padStart(2, "0")}/${(dateObj.getMonth() + 1).toString().padStart(2, "0")}/${dateObj.getFullYear()}`;
+  
   const formatTime = (dateObj) =>
     `${dateObj.getHours().toString().padStart(2, "0")}:${dateObj.getMinutes().toString().padStart(2, "0")}`;
 
-  // ใน Planner.js
   const handleSaveActivity = async () => {
-    // 1. เช็คว่ากรอกชื่อกิจกรรมหรือยัง
     if (!activityName.trim()) {
       Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
       return;
@@ -318,7 +306,7 @@ const Planner = () => {
 
     const startMinutes = startTime.getHours() * 60 + startTime.getMinutes();
     const endMinutes = endTime.getHours() * 60 + endTime.getMinutes();
-    const isOvernight = startMinutes >= endMinutes; // จะเป็น true ถ้าเวลาเริ่ม >= เวลาจบ
+    const isOvernight = startMinutes >= endMinutes; // ตรวจสอบข้ามคืน
 
     const newStart = formatTime(startTime);
     const newEnd = formatTime(endTime);
@@ -330,9 +318,15 @@ const Planner = () => {
     const executeSave = async () => {
       try {
         const finalActivityDate = new Date(activityDate);
+        
+        // ถ้าเป็นการข้ามคืน ให้บวกไป 1 วัน
         if (isOvernight) {
           finalActivityDate.setDate(finalActivityDate.getDate() + 1);
         }
+        
+        // รูปแบบวันที่สิ้นสุด (ใช้สำหรับแสดงผล)
+        const endDateStr = formatDate(finalActivityDate);
+
         finalActivityDate.setHours(
           endTime.getHours(),
           endTime.getMinutes(),
@@ -347,6 +341,7 @@ const Planner = () => {
           title: activityName.trim(),
           timeString: `${newStart} - ${newEnd}`,
           dateString: dateStr,
+          endDateString: endDateStr, // 📝 บันทึกวันที่สิ้นสุด
           category,
           note,
           status: isEditing ? oldTask?.status : "pending",
@@ -364,7 +359,6 @@ const Planner = () => {
           updatedTasks = [...tasks, taskData];
         }
 
-        // 📝 ปิด Modal และเคลียร์ค่าทันทีที่กดเซฟ เพื่อให้ UI ลื่นไหล
         setTasks(updatedTasks);
         setModalVisible(false);
         setActivityName("");
@@ -372,7 +366,6 @@ const Planner = () => {
         setIsEditing(false);
         setEditingTaskId(null);
 
-        // 📝 ค่อยนำข้อมูลไปเซฟลงเครื่องและ Firebase เป็นการทำงานเบื้องหลัง
         await persistTasks(updatedTasks);
 
       } catch (error) {
@@ -383,7 +376,7 @@ const Planner = () => {
     const hasActivityConflict = tasks.some(
       (t) =>
         t.dateString === dateStr &&
-        t.id !== editingTaskId && // ป้องกันการเช็คชนกับงานตัวเองตอนกดแก้ไข
+        t.id !== editingTaskId &&
         isOverlapping(
           newStart,
           newEnd,
@@ -426,7 +419,7 @@ const Planner = () => {
         onPress: () => {
           const updatedTasks = tasks.filter((task) => task.id !== taskId);
           setTasks(updatedTasks);
-          persistTasks(updatedTasks); // Sync deletion
+          persistTasks(updatedTasks);
           setDetailsModalVisible(false);
           setSelectedTask(null);
         },
@@ -514,7 +507,7 @@ const Planner = () => {
                     selectedValue={selectedSemester}
                     onValueChange={(val) => {
                       setSelectedSemester(val);
-                      setNote(`ปีการศึกษา: ${val}`); // บันทึกเทอมลงใน Note
+                      setNote(`ปีการศึกษา: ${val}`); 
                     }}
                   >
                     <Picker.Item label="-- เลือกเทอม --" value="" />
@@ -545,7 +538,7 @@ const Planner = () => {
                         selectedValue={selectedSubjectName}
                         onValueChange={(val) => {
                           setSelectedSubjectName(val);
-                          setActivityName(val); // กำหนดชื่อกิจกรรมจากวิชาที่เลือก
+                          setActivityName(val);
                         }}
                       >
                         <Picker.Item label="-- เลือกรายวิชา --" value="" />
@@ -558,7 +551,7 @@ const Planner = () => {
                 )}
               </>
             ) : (
-              <>{/* ไม่รู้ใส่ไรดี */}</>
+              <>{/* อื่นๆ */}</>
             )}
 
             <Text style={styles.label}>รายละเอียดเพิ่มเติม</Text>
@@ -570,7 +563,7 @@ const Planner = () => {
               onChangeText={setNote}
             />
 
-            <Text style={styles.label}>วันที่</Text>
+            <Text style={styles.label}>วันที่เริ่มกิจกรรม</Text>
             <TouchableOpacity
               style={styles.pickerButton}
               onPress={() => setShowDatePicker(true)}
@@ -680,13 +673,15 @@ const Planner = () => {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>วันที่:</Text>
                   <Text style={styles.detailValue}>
-                    {selectedTask.dateString}
+                    {selectedTask.isOvernight 
+                      ? `${selectedTask.dateString} - ${selectedTask.endDateString}` 
+                      : selectedTask.dateString}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>เวลา:</Text>
                   <Text style={styles.detailValue}>
-                    {selectedTask.timeString} {selectedTask.isOvernight ? "(ข้ามคืน +1 วัน)" : ""}
+                    {selectedTask.timeString} {selectedTask.isOvernight ? "(ข้ามคืน)" : ""}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
@@ -848,8 +843,14 @@ const Planner = () => {
                 style={styles.listItemRow}
                 onPress={() => openTaskDetails(item)}
               >
-                <View style={{ width: 80 }}>
+                <View style={{ width: 85 }}>
                   <Text style={styles.dateText}>{item.dateString}</Text>
+                  {/* แสดงวันที่สิ้นสุดแบบเล็กๆ ถ้าเป็นงานข้ามคืน */}
+                  {item.isOvernight && item.endDateString && (
+                    <Text style={[styles.dateText, { fontSize: 9, color: '#999' }]}>
+                      ถึง {item.endDateString}
+                    </Text>
+                  )}
                   <Text style={styles.timeText}>
                     {item.timeString.split("-")[0]}
                   </Text>
@@ -896,8 +897,13 @@ const Planner = () => {
                 style={styles.checklistRow}
                 onPress={() => openTaskDetails(plan)}
               >
-                <View style={{ width: 80 }}>
+                <View style={{ width: 85 }}>
                   <Text style={styles.checklistDate}>{plan.dateString}</Text>
+                  {plan.isOvernight && plan.endDateString && (
+                    <Text style={[styles.checklistDate, { fontSize: 9, color: '#999' }]}>
+                      ถึง {plan.endDateString}
+                    </Text>
+                  )}
                   <Text style={styles.checklistTime}>
                     {plan.timeString.split("-")[0]}
                   </Text>
@@ -949,7 +955,6 @@ const Planner = () => {
                         />
                       );
                     } else {
-                      // ถ้า status เป็นค่าอื่น หรือเป็น null/undefined ให้โชว์วงกลมเทาไว้ก่อน
                       return (
                         <Ionicons
                           name="ellipse-outline"
@@ -1189,7 +1194,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
   },
-
   editButtonText: {
     color: "#fff",
     fontWeight: "bold",

@@ -255,45 +255,65 @@ const Dashboard = ({ navigation }) => {
 
     setUpcomingExams(upcoming);
   };
-
-  const calculateUpcomingActivities = () => {
+const calculateUpcomingActivities = () => {
     const now = new Date();
+    // เซ็ตเวลาของ now เป็นเริ่มวัน เพื่อให้เปรียบเทียบวันที่ได้แม่นยำขึ้น
+    const todayStr = now.toDateString();
 
     const filtered = tasks.filter((activity) => {
-      const activityDate = new Date(activity.endTimeMs);
       const isPending = activity.status === "pending";
-
       if (!isPending) return false;
 
+      // 1. สร้าง Date Object ของ "วันที่เริ่มต้น" จาก dateString (DD/MM/YYYY)
+      const [day, month, year] = activity.dateString.split("/");
+      const startDate = new Date(year, month - 1, day);
+
+      // 2. สร้าง Date Object ของ "วันที่สิ้นสุด" จาก endTimeMs
+      const endDate = new Date(activity.endTimeMs);
+
       if (activityFilter === "today") {
-        return activityDate.toDateString() === now.toDateString();
+        // 📝 เช็คว่า "วันนี้" ตรงกับ "วันเริ่มต้น" หรือ "วันสิ้นสุด(กรณีข้ามคืน)" หรือไม่
+        return (
+          startDate.toDateString() === todayStr ||
+          endDate.toDateString() === todayStr
+        );
       }
 
       if (activityFilter === "week") {
         const firstDayOfWeek = new Date(now);
         firstDayOfWeek.setDate(now.getDate() - now.getDay());
+        firstDayOfWeek.setHours(0, 0, 0, 0);
 
         const lastDayOfWeek = new Date(firstDayOfWeek);
         lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+        lastDayOfWeek.setHours(23, 59, 59, 999);
 
-        return activityDate >= firstDayOfWeek && activityDate <= lastDayOfWeek;
+        // เช็คว่าช่วงเวลาของงาน คาบเกี่ยวกับสัปดาห์นี้หรือไม่
+        return startDate <= lastDayOfWeek && endDate >= firstDayOfWeek;
       }
 
       if (activityFilter === "nextWeek") {
-        const start = new Date(now);
-        start.setDate(now.getDate() + 7); // เริ่มอีก 7 วันข้างหน้า
+        const firstDayOfNextWeek = new Date(now);
+        firstDayOfNextWeek.setDate(now.getDate() - now.getDay() + 7);
+        firstDayOfNextWeek.setHours(0, 0, 0, 0);
 
-        const end = new Date(now);
-        end.setDate(now.getDate() + 14); // สิ้นสุดอีก 14 วัน
+        const lastDayOfNextWeek = new Date(firstDayOfNextWeek);
+        lastDayOfNextWeek.setDate(firstDayOfNextWeek.getDate() + 6);
+        lastDayOfNextWeek.setHours(23, 59, 59, 999);
 
-        return activityDate >= start && activityDate <= end;
+        return startDate <= lastDayOfNextWeek && endDate >= firstDayOfNextWeek;
       }
 
       if (activityFilter === "month") {
-        return (
-          activityDate.getMonth() === now.getMonth() &&
-          activityDate.getFullYear() === now.getFullYear()
-        );
+        // เช็คว่าเดือนและปีตรงกับเดือนนี้หรือไม่ (เช็คทั้งวันเริ่มและวันจบ)
+        const isStartInMonth =
+          startDate.getMonth() === now.getMonth() &&
+          startDate.getFullYear() === now.getFullYear();
+        const isEndInMonth =
+          endDate.getMonth() === now.getMonth() &&
+          endDate.getFullYear() === now.getFullYear();
+
+        return isStartInMonth || isEndInMonth;
       }
 
       return false;
