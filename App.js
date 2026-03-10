@@ -1,22 +1,26 @@
-import React from "react";
-import { StyleSheet, View, Image, Text } from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, Image, Text, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack"; // นำเข้า Stack
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { PaperProvider } from "react-native-paper";
 
+// นำเข้า Firebase Auth
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebaseConfig"; // ตรวจสอบว่า path ของไฟล์ firebaseConfig ถูกต้อง
+
 // นำเข้าหน้าต่างๆ
-import Login from "./src/screens/Login"; // นำเข้าหน้า Login
+import Login from "./src/screens/Login";
 import Dashboard from "./src/screens/Dashboard";
 import Timetable from "./src/screens/Timetable";
 import Planner from "./src/screens/Planner";
 import Profile from "./src/screens/Profile";
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator(); // สร้าง Stack Navigator
+const Stack = createNativeStackNavigator();
 
-// 1. สร้าง Component สำหรับกลุ่มหน้า Tab ด้านล่าง (โค้ดเดิมของคุณ)
+// 1. ส่วนของ Tab Navigator (UI เหมือนเดิมที่คุณทำไว้)
 const MainTabs = () => {
   return (
     <Tab.Navigator
@@ -67,25 +71,13 @@ const MainTabs = () => {
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
-                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
-                style={{
-                  width: 40,
-                  height: 40,
-                  resizeMode: "contain",
-                  marginRight: 10,
-                }}
+                source={require("./assets/logo.png")}
+                style={{ width: 40, height: 40, resizeMode: "contain", marginRight: 10 }}
               />
-              <Text
-                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
-              >
-                Home
-              </Text>
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>Home</Text>
             </View>
           ),
-          headerStyle: {
-            backgroundColor: "#ffffff",
-            height: 100,
-          },
+          headerStyle: { backgroundColor: "#ffffff", height: 100 },
         }}
       />
       <Tab.Screen
@@ -95,25 +87,13 @@ const MainTabs = () => {
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
-                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
-                style={{
-                  width: 40,
-                  height: 40,
-                  resizeMode: "contain",
-                  marginRight: 10,
-                }}
+                source={require("./assets/logo.png")}
+                style={{ width: 40, height: 40, resizeMode: "contain", marginRight: 10 }}
               />
-              <Text
-                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
-              >
-                Timetable
-              </Text>
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>Timetable</Text>
             </View>
           ),
-          headerStyle: {
-            backgroundColor: "#ffffff",
-            height: 100,
-          },
+          headerStyle: { backgroundColor: "#ffffff", height: 100 },
         }}
       />
       <Tab.Screen
@@ -123,25 +103,13 @@ const MainTabs = () => {
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
-                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
-                style={{
-                  width: 40,
-                  height: 40,
-                  resizeMode: "contain",
-                  marginRight: 10,
-                }}
+                source={require("./assets/logo.png")}
+                style={{ width: 40, height: 40, resizeMode: "contain", marginRight: 10 }}
               />
-              <Text
-                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
-              >
-                Planner
-              </Text>
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>Planner</Text>
             </View>
           ),
-          headerStyle: {
-            backgroundColor: "#ffffff",
-            height: 100,
-          },
+          headerStyle: { backgroundColor: "#ffffff", height: 100 },
         }}
       />
       <Tab.Screen
@@ -151,49 +119,53 @@ const MainTabs = () => {
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
-                source={require("./assets/logo.png")} // ตรวจสอบพาทรูปภาพให้ตรง
-                style={{
-                  width: 40,
-                  height: 40,
-                  resizeMode: "contain",
-                  marginRight: 10,
-                }}
+                source={require("./assets/logo.png")}
+                style={{ width: 40, height: 40, resizeMode: "contain", marginRight: 10 }}
               />
-              <Text
-                style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}
-              >
-                Profile
-              </Text>
+              <Text style={{ color: "#000000", fontSize: 18, fontWeight: "bold" }}>Profile</Text>
             </View>
           ),
-          headerStyle: {
-            backgroundColor: "#ffffff",
-            height: 100,
-          },
+          headerStyle: { backgroundColor: "#ffffff", height: 100 },
         }}
       />
     </Tab.Navigator>
   );
 };
 
-// 2. ตัวหลักของ App: ใช้ Stack คุมว่าหน้าแรกคือ Login
+// 2. ตัวหลักของ App: เพิ่ม Logic เช็คสถานะ Login
 const App = () => {
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState(null);
+
+  // ดักฟังสถานะ Auth จาก Firebase
+  useEffect(() => {
+    const subscriber = onAuthStateChanged(auth, (authenticatedUser) => {
+      setUser(authenticatedUser);
+      if (initializing) setInitializing(false);
+    });
+    return subscriber; // unsubscribe เมื่อเลิกใช้งาน
+  }, [initializing]);
+
+  // แสดงหน้าโหลดระหว่างเช็คสถานะ (ป้องกันหน้าขาว)
+  if (initializing) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F9E2EB" }}>
+        <ActivityIndicator size="large" color="#C7005C" />
+      </View>
+    );
+  }
+
   return (
     <PaperProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Login">
-          {/* หน้า Login (ซ่อน Header ด้านบน) */}
-          <Stack.Screen
-            name="Login"
-            component={Login}
-            options={{ headerShown: false }}
-          />
-          {/* หน้าหลักที่รวม Tab ไว้ (ซ่อน Header เพราะ Tab จัดการเอง) */}
-          <Stack.Screen
-            name="MainApp"
-            component={MainTabs}
-            options={{ headerShown: false }}
-          />
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {user ? (
+            // ถ้าล็อคอินแล้ว ให้เข้าหน้า MainApp ทันที
+            <Stack.Screen name="MainApp" component={MainTabs} />
+          ) : (
+            // ถ้ายังไม่ล็อคอิน ให้แสดงหน้า Login
+            <Stack.Screen name="Login" component={Login} />
+          )}
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>
